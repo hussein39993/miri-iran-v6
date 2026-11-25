@@ -1,0 +1,12 @@
+{
+  "name": "miri-iran-v6",
+  "version": "6.0.0-step1",
+  "private": true,
+  "description": "Miri Iran V6 - static front end (demo data) + Node backend with a Charter724 flight-search adapter (search only; no bookings, payments, tickets or refunds)",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node tests/test.js && node tests/test_v5.js && node tests/test_server.js && node tests/test_charter724.js",
+    "check:live": "node tools/check-live.js",
+    "swagger:summary": "node tools/summarize-swagger.js docs/charter724-openapi.json"
+  }
+}
