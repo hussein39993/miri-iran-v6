@@ -1,0 +1,40 @@
+{
+  "_readme": "Filled from docs/charter724-openapi.json (APICore 1.1.0, OpenAPI 3.0.3). Paths, bodies and field names below are the documented ones. Nothing here has been verified against the real server yet.",
+  "envelope": { "resultPath": "Result", "msgPath": "Msg" },
+  "errors": {
+    "-105": { "status": 502, "code": "PROVIDER_UNAUTHORIZED", "message": "Charter724 rejected the access token (code -105). The token may have expired, or this computer's public IP may not be whitelisted for the account." },
+    "-203": { "status": 400, "code": "DATE_IN_PAST", "message": "Charter724 says the flight date must be today or later (code -203)." },
+    "validation": { "status": 502, "code": "PROVIDER_VALIDATION", "message": "Charter724 rejected the request fields (HTTP 422, 'validation')." }
+  },
+  "auth": {
+    "steps": [
+      { "name": "encode", "method": "POST", "path": "/api/userPassBase64", "body": { "username": "{{username}}", "password": "{{password}}" }, "extract": { "basic": "Data" } },
+      { "name": "login", "method": "POST", "path": "/api/Login", "body": { "userPassBase64": "{{steps.encode.basic}}" }, "extract": { "token": "Data.access_token" }, "extractOptional": { "expiresAt": "Data.expires_Utc" } }
+    ]
+  },
+  "diagnostics": { "myIp": { "method": "GET", "path": "/api/showmyip", "dataPath": "Data" } },
+  "airports": {
+    "method": "GET", "path": "/api/WebService/Airportlist",
+    "response": { "listPath": "Data", "fields": { "code": "IATA_airport", "codeInt": "code_int", "nameEn": "name_en", "nameFa": "name_fa" } }
+  },
+  "flightSearch": {
+    "method": "POST", "path": "/api/WebService/Available",
+    "body": { "from_flight": "{{from}}", "to_flight": "{{to}}", "date_flight": "{{date}}" },
+    "response": {
+      "listPath": "Data",
+      "cabin": {
+        "labelFields": ["type_flight", "DisplayLable"],
+        "economy": ["economy", "اکونومی", "اقتصادی"],
+        "business": ["business", "بیزینس", "بیزنس", "تجاری"]
+      },
+      "fields": {
+        "agencyId": "ajency_online_ID", "providerType": "type", "airline": "airline", "airlineCode": "IATA_code", "flightNumber": "number_flight",
+        "from": "from", "to": "to", "departureDate": "date_flight", "departure": "time_flight", "arrivalDate": "end_date_flight", "arrival": "end_time_flight",
+        "durationMinutes": "duration_minutes", "hasStop": "has_stop", "baggageKg": "bag", "capacity": "capacity",
+        "currency": "currency", "priceAdult": "price_final", "priceChild": "price_final_chd", "priceInfant": "price_final_inf",
+        "cabinCode": "cabinclass", "sellingType": "SellingType", "cabinLabelEn": "type_flight", "cabinLabelFa": "DisplayLable",
+        "cancellationRules": "cancellation_rule", "alternatives": "other_flights"
+      }
+    }
+  }
+}
