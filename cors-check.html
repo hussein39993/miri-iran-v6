@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>فحص اتصال ميري ايران بالخادم</title>
+<style>
+  :root { --bg:#f4f6fa; --card:#fff; --ink:#0c2340; --muted:#5b6b82; --ok:#0a7d3b; --bad:#b3261e; --warn:#8a5a00; --line:#d9e0ea; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0b1522; --card:#13233a; --ink:#e8eef7; --muted:#9db0c8; --ok:#4cc27d; --bad:#ff8a80; --warn:#f0c060; --line:#294263; } }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:16px env(safe-area-inset-right) 40px env(safe-area-inset-left); background:var(--bg); color:var(--ink); font:16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Tahoma, Arial, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 0 12px; }
+  h1 { font-size: 21px; margin: 12px 0 4px; }
+  p.sub { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; }
+  label { display:block; font-size: 14px; color: var(--muted); margin-bottom: 4px; }
+  input { width:100%; padding: 12px; border:1px solid var(--line); border-radius: 10px; font-size: 16px; background: transparent; color: var(--ink); direction: ltr; text-align: left; }
+  button { font: inherit; font-weight: 700; padding: 13px 18px; border: 0; border-radius: 12px; background: #0c2340; color: #fff; cursor: pointer; min-height: 48px; }
+  button.alt { background: #d9a73a; color: #1c1400; }
+  button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+  button[disabled] { opacity: .5; cursor: wait; }
+  .row { display:flex; gap:10px; flex-wrap: wrap; margin-top: 10px; }
+  .row > * { flex: 1 1 140px; }
+  .step { border-top: 1px solid var(--line); padding: 10px 0; }
+  .step:first-child { border-top: 0; }
+  .step b { display:block; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); } .wait { color: var(--muted); }
+  .detail { font-size: 14px; white-space: pre-wrap; word-break: break-word; direction: auto; }
+  .banner { border: 2px dashed; border-radius: 12px; padding: 10px 12px; font-weight: 700; margin-top: 10px; }
+  .banner.demo { border-color: var(--bad); color: var(--bad); }
+  .banner.live { border-color: var(--ok); color: var(--ok); }
+  ul.flights { list-style: none; padding: 0; margin: 8px 0 0; }
+  ul.flights li { padding: 8px 0; border-top: 1px solid var(--line); direction: ltr; text-align: left; font-size: 14px; }
+  textarea { width: 100%; min-height: 150px; direction: ltr; text-align: left; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; padding: 10px; border:1px solid var(--line); border-radius: 10px; background: transparent; color: var(--ink); }
+  small { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>فحص اتصال الموقع بالخادم</h1>
+  <p class="sub">صفحة فحص فقط: لا حجز ولا دفع ولا إصدار تذاكر. افتحها من رابط GitHub Pages نفسه الذي تواجه فيه المشكلة.</p>
+
+  <div class="card">
+    <label for="api">عنوان الخادم (Render)</label>
+    <input id="api" value="https://miri-iran-v6.onrender.com" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <div class="row">
+      <button id="start">ابدأ الفحص</button>
+      <button id="search" class="alt" disabled>جرّب بحث رحلات حقيقي (MHD إلى KIH)</button>
+    </div>
+    <p class="sub" style="margin-top:10px">قد يستغرق أول طلب حتى دقيقة إذا كان خادم Render نائماً. انتظر ولا تغلق الصفحة.</p>
+  </div>
+
+  <div class="card" id="where"></div>
+  <div class="card" id="steps" aria-live="polite"><span class="wait">اضغط «ابدأ الفحص».</span></div>
+  <div class="card" id="searchOut" hidden></div>
+
+  <div class="card">
+    <b>التقرير (انسخه وأرسله لي)</b>
+    <textarea id="report" readonly placeholder="سيظهر التقرير هنا بعد الفحص"></textarea>
+    <div class="row"><button id="copy" class="ghost">نسخ التقرير</button></div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var TIMEOUT_MS = (typeof window !== 'undefined' && window.__TIMEOUT_MS__) || 75000; // Render's free plan can need about a minute to wake up
+
+  // ---------- Logic (no DOM here, so it can be tested) ----------
+  function now() { return Date.now(); }
+  function trimSlash(s) { return String(s || '').trim().replace(/\/+$/, ''); }
+  function withTimeout(fetchFn, url, opts) {
+    var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, timer = null;
+    var o = {}; for (var k in opts) o[k] = opts[k]; if (ctl) o.signal = ctl.signal;
+    var p = fetchFn(url, o);
+    var t = new Promise(function (_, rej) { timer = setTimeout(function () { if (ctl) ctl.abort(); var e = new Error('timeout'); e.name = 'TimeoutError'; rej(e); }, TIMEOUT_MS); });
+    return Promise.race([p, t]).then(function (r) { clearTimeout(timer); return r; }, function (e) { clearTimeout(timer); throw e; });
+  }
+  function readJson(res) { return res.text().then(function (t) { try { return JSON.parse(t); } catch (e) { return null; } }); }
+  function tomorrowTehran() {
+    var d;
+    try { var s = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); d = new Date(s + 'T00:00:00Z'); }
+    catch (e) { d = new Date(); d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); }
+    d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10);
+  }
+  // When a cross-origin fetch fails the browser only says "TypeError". A "no-cors" probe tells the two main causes apart.
+  function diagnoseFailure(fetchFn, url, err) {
+    if (err && err.name === 'TimeoutError') return Promise.resolve({ kind: 'timeout', text: 'انتهت المهلة (' + (TIMEOUT_MS / 1000) + ' ثانية) دون رد. الخادم قد يكون نائماً أو متوقفاً. جرّب مرة أخرى بعد دقيقة.' });
+    return withTimeout(fetchFn, url, { method: 'GET', mode: 'no-cors', cache: 'no-store' }).then(
+      function () { return { kind: 'cors', text: 'الخادم يرد، لكن المتصفح منع الصفحة من قراءة الرد. هذا هو CORS: الخادم لا يرسل ترويسة Access-Control-Allow-Origin لهذا الموقع (أو نسخة Render قديمة).' }; },
+      function () { return { kind: 'network', text: 'لا يمكن الوصول إلى الخادم أصلاً (نائم أو متوقف، أو عنوان خاطئ، أو الإنترنت/DNS، أو حجب من الشبكة).' }; });
+  }
+
+  var L = {
+    pageOrigin: function (loc) { return loc && loc.origin ? loc.origin : 'غير معروف'; },
+    checkHealth: function (fetchFn, api) {
+      var t0 = now(), url = api + '/api/health';
+      return withTimeout(fetchFn, url, { method: 'GET', cache: 'no-store' }).then(function (res) {
+        return readJson(res).then(function (j) {
+          var ms = now() - t0, build = j && j.build;
+          return { id: 'health', ok: res.ok, title: '1) هل الخادم شغّال ويقرأ هذا الموقع؟', detail: 'الحالة HTTP ' + res.status + ' خلال ' + ms + ' مللي ثانية\nالإصدار على Render: ' + (build || 'لا يوجد حقل build (على الأرجح نسخة قديمة بلا إصلاح CORS)') + '\nالوضع: ' + (j && j.mode) + ' | بحث حقيقي جاهز: ' + (j && j.liveFlights), info: { build: build || null, mode: j && j.mode, liveFlights: j && j.liveFlights, ms: ms } };
+        });
+      }, function (e) { return diagnoseFailure(fetchFn, url, e).then(function (d) { return { id: 'health', ok: false, title: '1) هل الخادم شغّال ويقرأ هذا الموقع؟', detail: d.text, kind: d.kind }; }); });
+    },
+    checkAirports: function (fetchFn, api) {
+      var t0 = now(), url = api + '/api/airports';
+      return withTimeout(fetchFn, url, { method: 'GET', cache: 'no-store' }).then(function (res) {
+        return readJson(res).then(function (j) {
+          var ms = now() - t0, list = j && j.airports, n = Array.isArray(list) ? list.length : 0, kih = false, i;
+          for (i = 0; i < n; i++) if (list[i] && list[i].code === 'KIH') kih = true;
+          var ok = res.ok && n > 0, src = j && j.source, fict = j && j.fictional;
+          var detail = 'الحالة HTTP ' + res.status + ' خلال ' + ms + ' مللي ثانية\nعدد المطارات: ' + n + ' | كيش (KIH): ' + (kih ? 'موجودة' : 'غير موجودة') + '\nالمصدر: ' + src + ' | بيانات تجريبية: ' + fict;
+          if (!res.ok && j && j.error) detail += '\nخطأ من الخادم: ' + j.error.code;
+          return { id: 'airports', ok: ok, title: '2) هل تُقرأ قائمة المطارات من هذا الموقع؟ (GET /api/airports)', detail: detail, info: { status: res.status, count: n, kih: kih, source: src, fictional: fict, ms: ms }, warnDemo: fict === true };
+        });
+      }, function (e) { return diagnoseFailure(fetchFn, url, e).then(function (d) { return { id: 'airports', ok: false, title: '2) هل تُقرأ قائمة المطارات من هذا الموقع؟ (GET /api/airports)', detail: d.text, kind: d.kind }; }); });
+    },
+    // POST with an empty body: the server answers 400 "validation" without calling Charter724. The browser must send a preflight first, so this tests it.
+    checkPreflight: function (fetchFn, api) {
+      var url = api + '/api/flights/search';
+      return withTimeout(fetchFn, url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', cache: 'no-store' }).then(function (res) {
+        return readJson(res).then(function (j) {
+          var code = j && j.error && j.error.code, ok = res.status === 400 && code === 'VALIDATION_ERROR';
+          return { id: 'preflight', ok: ok, title: '3) هل يمرّ طلب البحث POST (فحص OPTIONS المسبق)؟', detail: ok ? 'نعم: المتصفح أرسل الفحص المسبق وسمح به الخادم، ثم ردّ الخادم 400 VALIDATION_ERROR كما هو متوقع لجسم فارغ. لم يُرسل أي طلب إلى Charter724.' : 'ردّ غير متوقع: HTTP ' + res.status + (code ? ' ' + code : ''), info: { status: res.status, code: code } };
+        });
+      }, function (e) { return diagnoseFailure(fetchFn, api + '/api/airports', e).then(function (d) { return { id: 'preflight', ok: false, title: '3) هل يمرّ طلب البحث POST (فحص OPTIONS المسبق)؟', detail: d.kind === 'cors' ? 'لا: المتصفح حجب طلب POST. الخادم لا يردّ على الفحص المسبق OPTIONS بالسماح لهذا الموقع.' : d.text, kind: d.kind }; }); });
+    },
+    // The page's own index.html: does its Content-Security-Policy allow connecting to the API?
+    checkCsp: function (fetchFn, api, loc) {
+      return fetchFn('./index.html', { cache: 'no-store' }).then(function (res) {
+        if (!res.ok) return { id: 'csp', ok: null, title: '4) هل سياسة الأمان (CSP) في index.html تسمح بالاتصال بالخادم؟', detail: 'لم أتمكن من قراءة index.html (HTTP ' + res.status + '). ضع هذه الصفحة بجانب index.html في المستودع.' };
+        return res.text().then(function (t) {
+          var m = /http-equiv=["']Content-Security-Policy["'][^>]*content=["']([^"']+)["']/i.exec(t);
+          if (!m) return { id: 'csp', ok: true, title: '4) هل سياسة الأمان (CSP) في index.html تسمح بالاتصال بالخادم؟', detail: 'لا توجد سياسة CSP في index.html، فلا شيء يحجب الاتصال من هذه الناحية.' };
+          var c = /connect-src\s+([^;]*)/i.exec(m[1]), d = /default-src\s+([^;]*)/i.exec(m[1]), src = (c ? c[1] : (d ? d[1] : '')).trim(), host = api.replace(/^https?:\/\//, '');
+          var ok = src.indexOf('*') !== -1 || src.indexOf(api) !== -1 || src.indexOf(host) !== -1;
+          return { id: 'csp', ok: ok, title: '4) هل سياسة الأمان (CSP) في index.html تسمح بالاتصال بالخادم؟', detail: (ok ? 'نعم' : 'لا') + '. قيمة connect-src: ' + (src || '(غير محددة)') };
+        });
+      }, function () { return { id: 'csp', ok: null, title: '4) هل سياسة الأمان (CSP) في index.html تسمح بالاتصال بالخادم؟', detail: 'تعذّرت قراءة index.html من هنا.' }; });
+    },
+    // A real, read-only flight search. Nothing is reserved or paid. The answer is shown exactly as the server sent it.
+    realSearch: function (fetchFn, api) {
+      var body = { from: 'MHD', to: 'KIH', trip: 'oneway', date: tomorrowTehran(), adults: 1, children: 0, infants: 0, cabin: 'economy' }, t0 = now();
+      return withTimeout(fetchFn, api + '/api/flights/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store' }).then(function (res) {
+        return readJson(res).then(function (j) {
+          var ms = now() - t0;
+          if (!res.ok || !j || j.error) return { ok: false, request: body, status: res.status, ms: ms, errorCode: j && j.error && j.error.code, errorMessage: j && j.error && j.error.message, providerCode: j && j.error && j.error.providerCode };
+          return { ok: true, request: body, status: res.status, ms: ms, source: j.source, fictional: j.fictional, count: Array.isArray(j.results) ? j.results.length : 0, flights: (j.results || []).slice(0, 5), meta: j.meta };
+        });
+      }, function (e) { return diagnoseFailure(fetchFn, api + '/api/airports', e).then(function (d) { return { ok: false, request: body, networkKind: d.kind, errorMessage: d.text }; }); });
+    },
+    flightLine: function (f) { var p = f && f.price && f.price.amountToman; return [f.airline || '?', (f.airlineCode || '') + (f.flightNumber || ''), (f.departure || '?') + (f.arrival ? ' -> ' + f.arrival : ''), p ? Number(p).toLocaleString('en-US') + ' toman' : 'no price', f.cabinLabel || f.cabin || ''].join(' | '); },
+    buildReport: function (ctx) {
+      var lines = ['Miri Iran connection check', 'time: ' + new Date().toISOString(), 'page: ' + ctx.page, 'api: ' + ctx.api, 'browser: ' + ctx.ua, ''];
+      (ctx.results || []).forEach(function (r) { lines.push((r.ok === true ? '[OK] ' : r.ok === false ? '[FAIL] ' : '[?] ') + r.title); lines.push('    ' + String(r.detail).split('\n').join('\n    ')); });
+      if (ctx.search) { var s = ctx.search; lines.push('', '[SEARCH] request: ' + JSON.stringify(s.request)); if (s.ok) { lines.push('    status ' + s.status + ' in ' + s.ms + ' ms | source=' + s.source + ' fictional=' + s.fictional + ' | flights=' + s.count + ' | meta=' + JSON.stringify(s.meta)); s.flights.forEach(function (f) { lines.push('    - ' + L.flightLine(f)); }); } else lines.push('    FAILED: ' + (s.errorCode || s.networkKind || '') + ' ' + (s.errorMessage || '') + (s.providerCode ? ' (provider code ' + s.providerCode + ')' : '') + (s.status ? ' HTTP ' + s.status : '')); }
+      return lines.join('\n');
+    },
+    tomorrowTehran: tomorrowTehran, trimSlash: trimSlash
+  };
+  if (typeof window !== 'undefined') window.MiriCheckLogic = L;
+  if (typeof window === 'undefined' || window.__NO_UI__ || !window.document || !window.document.getElementById) return;
+
+  // ---------- UI ----------
+  var $ = function (id) { return document.getElementById(id); }, ctx = { results: [], search: null };
+  function txt(el, s) { el.textContent = s; }
+  function mark(r) { return r.ok === true ? '✅' : r.ok === false ? '❌' : '❔'; }
+  function renderSteps() {
+    var box = $('steps'); box.textContent = '';
+    ctx.results.forEach(function (r) {
+      var d = document.createElement('div'); d.className = 'step';
+      var b = document.createElement('b'); b.className = r.ok === true ? 'ok' : r.ok === false ? 'bad' : 'warn'; b.textContent = mark(r) + ' ' + r.title;
+      var p = document.createElement('div'); p.className = 'detail'; p.textContent = r.detail;
+      d.appendChild(b); d.appendChild(p);
+      if (r.warnDemo) { var w = document.createElement('div'); w.className = 'banner demo'; w.textContent = 'تنبيه: الخادم يقول إن هذه القائمة تجريبية (fictional=true).'; d.appendChild(w); }
+      box.appendChild(d);
+    });
+    $('report').value = L.buildReport({ page: location.href, api: L.trimSlash($('api').value), ua: navigator.userAgent, results: ctx.results, search: ctx.search });
+  }
+  function conclusion() {
+    var by = {}; ctx.results.forEach(function (r) { by[r.id] = r; });
+    var msg, cls;
+    if (by.airports && by.airports.ok && by.preflight && by.preflight.ok) { msg = 'الاتصال سليم: الموقع يقرأ المطارات ويمرّ طلب البحث. إن بقيت الحقول معطّلة فالمشكلة في كود الواجهة وليست في الخادم.'; cls = 'live'; }
+    else if ((by.airports && by.airports.kind === 'cors') || (by.preflight && by.preflight.kind === 'cors')) { msg = 'السبب: CORS. الخادم على Render لا يسمح لهذا الموقع. تأكد أن آخر نسخة (فيها server/cors.js) منشورة على Render ثم أعد الفحص.'; cls = 'demo'; }
+    else if (by.health && (by.health.kind === 'network' || by.health.kind === 'timeout')) { msg = 'الخادم لا يردّ. افتح رابط Render في تبويب جديد وانتظر ثم أعد الفحص.'; cls = 'demo'; }
+    else { msg = 'راجع الخطوات الفاشلة أعلاه وأرسل التقرير لي.'; cls = 'demo'; }
+    var d = document.createElement('div'); d.className = 'banner ' + cls; d.textContent = msg; $('steps').appendChild(d);
+  }
+  function run() {
+    var api = L.trimSlash($('api').value); $('start').disabled = true; $('search').disabled = true; ctx.results = []; ctx.search = null; $('searchOut').hidden = true;
+    txt($('steps'), '⏳ جارٍ الفحص... (قد يستغرق حتى دقيقة إذا كان الخادم نائماً)');
+    var f = function (u, o) { return fetch(u, o); };
+    L.checkHealth(f, api).then(function (r) { ctx.results.push(r); renderSteps(); return L.checkAirports(f, api); })
+      .then(function (r) { ctx.results.push(r); renderSteps(); return L.checkPreflight(f, api); })
+      .then(function (r) { ctx.results.push(r); renderSteps(); return L.checkCsp(f, api, location); })
+      .then(function (r) { ctx.results.push(r); renderSteps(); conclusion(); $('start').disabled = false; $('search').disabled = false; })
+      .catch(function (e) { txt($('steps'), 'خطأ غير متوقع في صفحة الفحص: ' + e); $('start').disabled = false; });
+  }
+  function search() {
+    var api = L.trimSlash($('api').value), out = $('searchOut'); $('search').disabled = true; out.hidden = false; txt(out, '⏳ جارٍ البحث الحقيقي...');
+    L.realSearch(function (u, o) { return fetch(u, o); }, api).then(function (s) {
+      ctx.search = s; out.textContent = '';
+      var h = document.createElement('b'); h.textContent = 'نتيجة البحث ' + s.request.from + ' إلى ' + s.request.to + ' بتاريخ ' + s.request.date; out.appendChild(h);
+      var p = document.createElement('div'); p.className = 'detail';
+      if (!s.ok) { p.textContent = '❌ فشل البحث: ' + (s.errorCode || s.networkKind || '') + '\n' + (s.errorMessage || '') + (s.providerCode ? '\nرمز Charter724: ' + s.providerCode : '') + (s.status ? '\nHTTP ' + s.status : ''); out.appendChild(p); }
+      else {
+        var ban = document.createElement('div'); var live = s.source === 'charter724' && s.fictional === false; ban.className = 'banner ' + (live ? 'live' : 'demo'); ban.textContent = live ? 'رد حقيقي من Charter724 عبر الخادم (fictional=false)' : 'بيانات تجريبية وليست حقيقية (source=' + s.source + ')'; out.appendChild(ban);
+        p.textContent = 'HTTP ' + s.status + ' خلال ' + s.ms + ' مللي ثانية\nعدد الرحلات: ' + s.count + (s.count === 0 ? '\nلا رحلات لهذا اليوم والمسار (قد يكون هذا صحيحاً).' : '') + '\nالمستبعد: ' + JSON.stringify(s.meta && s.meta.excluded) + (s.meta && s.meta.unclassifiedCabins && s.meta.unclassifiedCabins.length ? '\nدرجات لم تُصنَّف: ' + JSON.stringify(s.meta.unclassifiedCabins) : ''); out.appendChild(p);
+        var ul = document.createElement('ul'); ul.className = 'flights'; s.flights.forEach(function (fl) { var li = document.createElement('li'); li.textContent = L.flightLine(fl); ul.appendChild(li); }); out.appendChild(ul);
+      }
+      $('search').disabled = false; renderSteps();
+    });
+  }
+  $('where').textContent = 'هذه الصفحة تعمل من: ' + L.pageOrigin(location) + (location.origin === 'null' || location.protocol === 'file:' ? ' (ملف محلي: افتحها من GitHub Pages)' : '');
+  $('start').addEventListener('click', run); $('search').addEventListener('click', search);
+  $('copy').addEventListener('click', function () { var t = $('report'); t.select(); try { if (navigator.clipboard) navigator.clipboard.writeText(t.value); else document.execCommand('copy'); $('copy').textContent = 'تم النسخ ✓'; } catch (e) { $('copy').textContent = 'حدّد النص وانسخه يدوياً'; } });
+})();
+</script>
+</body>
+</html>
