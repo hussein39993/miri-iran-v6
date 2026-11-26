@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Miri Iran - airport search test page</title>
+<link rel="stylesheet" href="css/airport-combobox.css">
+<style>
+  body { margin: 0; padding: 16px; font: 16px/1.6 -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; background: #f4f6fa; color: #0c2340; }
+  @media (prefers-color-scheme: dark) { body { background: #0b1522; color: #e8eef7; } }
+  main { max-width: 640px; margin: 0 auto; }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
+  @media (min-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } }
+  button.go { margin-top: 14px; min-height: 48px; padding: 0 22px; border: 0; border-radius: 12px; background: #0c2340; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  pre { direction: ltr; text-align: left; white-space: pre-wrap; background: rgba(127,127,127,.12); padding: 10px; border-radius: 10px; min-height: 3em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>اختبار حقول المطارات</h1>
+  <p>صفحة تجريبية فقط: لا بحث رحلات ولا حجز ولا دفع. الزر يعرض فقط ما سيُرسل إلى البحث.</p>
+  <form id="f" class="grid" novalidate>
+    <div id="fromHost"></div>
+    <div id="toHost"></div>
+  </form>
+  <button class="go" id="go" type="button">Show search codes</button>
+  <pre id="out" aria-live="polite"></pre>
+</main>
+<script src="js/airport-combobox.js"></script>
+<script>
+(function () {
+  var q = new URLSearchParams(location.search), api = q.get('api');
+  var lang = q.get('lang') || 'ar'; document.documentElement.lang = lang; document.documentElement.dir = lang === 'en' ? 'ltr' : 'rtl';
+  var L = { ar: ['من أين؟', 'إلى أين؟', 'ابحث بالاسم أو الرمز'], fa: ['مبدأ', 'مقصد', 'نام یا کد فرودگاه'], en: ['From', 'To', 'Type a name or code'] }[lang] || [];
+  window.pair = MiriAirportCombobox.createPair({
+    fromHost: document.getElementById('fromHost'), toHost: document.getElementById('toHost'), lang: lang,
+    apiBase: /^https?:\/\//.test(api || '') ? api : undefined,   // default: https://miri-iran-v6.onrender.com
+    from: { name: 'from', label: L[0], placeholder: L[2] }, to: { name: 'to', label: L[1], placeholder: L[2] }
+  });
+  document.getElementById('go').addEventListener('click', function () {
+    var ok = pair.validate();
+    document.getElementById('out').textContent = JSON.stringify({ valid: ok, from: pair.from.value, to: pair.to.value });
+  });
+})();
+</script>
+</body>
+</html>
