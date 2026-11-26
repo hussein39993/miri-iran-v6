@@ -3,6 +3,34 @@
 (function () {
   const { t, num, el, S } = UI;
   const pairs = a => a.map((x, i) => [String(i), x]);
+  // Texts for the new airport/live-search parts (kept here so no other file has to change).
+  const TXT = {
+    searchAirport: { ar: 'ابحث بالاسم (عربي / فارسي / English) أو برمز IATA', fa: 'جستجو با نام (عربی / فارسی / English) یا کد IATA', en: 'Search by name (Arabic / Persian / English) or IATA code' },
+    noMatch: { ar: 'لا يوجد مطار مطابق', fa: 'فرودگاهی پیدا نشد', en: 'No matching airport' },
+    count: { ar: n => n + ' مطار', fa: n => n + ' فرودگاه', en: n => n + (n === 1 ? ' airport' : ' airports') },
+    loadingAirports: { ar: 'جارٍ تحميل المطارات من الخادم... (قد يستغرق حتى دقيقة عند أول استخدام)', fa: 'در حال بارگذاری فرودگاه‌ها از سرور... (بار اول ممکن است تا یک دقیقه طول بکشد)', en: 'Loading airports from the server... (the first request can take up to a minute)' },
+    airportsFailed: { ar: 'تعذّر تحميل قائمة المطارات: ', fa: 'بارگذاری فهرست فرودگاه‌ها ناموفق بود: ', en: 'Could not load the airport list: ' },
+    retry: { ar: 'إعادة المحاولة', fa: 'تلاش دوباره', en: 'Retry' },
+    airportRequired: { ar: 'اختر مطارًا من القائمة', fa: 'یک فرودگاه از فهرست انتخاب کنید', en: 'Choose an airport from the list' },
+    airportsLive: { ar: n => 'قائمة المطارات حيّة من الخادم (Charter724) — ' + n + ' مطار', fa: n => 'فهرست فرودگاه‌ها زنده از سرور (Charter724) — ' + n + ' فرودگاه', en: n => 'Live airport list from the server (Charter724) — ' + n + ' airports' },
+    airportsDemo: { ar: n => 'قائمة مطارات تجريبية (ليست من Charter724) — ' + n, fa: n => 'فهرست فرودگاه‌های نمایشی (نه از Charter724) — ' + n, en: n => 'DEMO airport list (not from Charter724) — ' + n },
+    searching: { ar: 'جارٍ البحث عن الرحلات... (قد يستغرق حتى دقيقة عند أول استخدام)', fa: 'در حال جستجوی پروازها... (بار اول ممکن است تا یک دقیقه طول بکشد)', en: 'Searching flights... (the first request can take up to a minute)' },
+    searchFailed: { ar: 'فشل البحث: ', fa: 'جستجو ناموفق بود: ', en: 'Search failed: ' },
+    liveBanner: { ar: 'نتائج حيّة من Charter724 — للعرض فقط، الحجز والدفع معطّلان', fa: 'نتایج زنده از Charter724 — فقط نمایش؛ رزرو و پرداخت غیرفعال است', en: 'LIVE results from Charter724 — view only; booking and payment are disabled' },
+    demoBanner: { ar: 'بيانات تجريبية وهمية — ليست رحلات أو أسعارًا حقيقية', fa: 'داده‌های نمایشی ساختگی — پرواز یا قیمت واقعی نیست', en: 'DEMO fictional data — not real flights or prices' },
+    liveBadge: { ar: 'حيّ', fa: 'زنده', en: 'LIVE' },
+    noPrice: { ar: 'السعر غير متاح', fa: 'قیمت موجود نیست', en: 'Price not available' },
+    returnFlights: { ar: 'رحلات العودة', fa: 'پروازهای برگشت', en: 'Return flights' }
+  };
+  const L = k => { const v = TXT[k][S.lang] || TXT[k].en; return v; };
+  (function injectCss() {
+    if (document.getElementById('miri-wizard-css')) return;
+    const c = document.createElement('style'); c.id = 'miri-wizard-css';
+    c.textContent = '.apt-q{margin-bottom:.4rem;font-size:16px}.apt-hint{margin:.25rem 0 0;font-size:.85em;opacity:.8}'
+      + '.live-badge{display:inline-block;margin-inline-start:.5rem;padding:.05rem .5rem;border-radius:999px;background:#0a7d3b;color:#fff;font-size:.75em;font-weight:700}'
+      + '.src-live{border-inline-start:4px solid #0a7d3b}.src-demo{border-inline-start:4px solid #c77700}';
+    document.head.append(c);
+  })();
 
   function defs(service) {
     const spec = MI.SERVICES.find(s => s.id === service).spec, d = [];
@@ -10,7 +38,7 @@
     for (const c of spec) {
       if (c === 'p') { add('from', t('from'), 'select', { opts: pairs(t('pl')), val: '0' }); add('to', t('to'), 'select', { opts: pairs(t('pl')), val: '2' }); }
       if (c === 'f') {
-        add('from', t('from'), 'select', { opts: pairs(t('pl')), val: '0' }); add('to', t('to'), 'select', { opts: pairs(t('pl')), val: '2' });
+        add('from', t('from'), 'airport', { opts: [], val: '' }); add('to', t('to'), 'airport', { opts: [], val: '' });
         add('trip', t('trip'), 'select', { opts: [['oneway', t('tripOpts')[0]], ['round', t('tripOpts')[1]]], val: 'oneway' });
         add('date', t('date'), 'date', { val: MI.isoLocal(), min: MI.isoLocal() });
         add('ret', t('retDate'), 'date', { req: false, val: '', min: MI.isoLocal() });
@@ -41,7 +69,8 @@
     const e = {}, R = MI.rules;
     for (const d of ds) {
       const v = f[d.name];
-      if (d.name === 'to' && R.sameCity(f)) e.to = 'sameCity';
+      if (d.kind === 'airport' && !v) e[d.name] = 'airportRequired';
+      else if (d.name === 'to' && R.sameCity(f)) e.to = 'sameCity';
       else if (d.name === 'date' && R.pastDate(v)) e.date = 'pastDate';
       else if (d.name === 'ret' && f.trip === 'round' && !R.returnDate(f.date, v)) e.ret = 'returnDate';
       else if (d.name === 'adults' && !R.pax(f.adults, f.children, f.infants)) e.adults = 'pax';
@@ -57,7 +86,36 @@
   }
   const show = (d, v) => (d.opts ? ((d.opts.find(o => o[0] === String(v)) || [])[1] ?? v) : (v || '-'));
 
+  const errText = k => (TXT[k] && typeof TXT[k][S.lang] === 'string' ? TXT[k][S.lang] : t('err_' + k));
+  // Airport picker: a search box + a normal <select> (works with every phone keyboard and screen reader).
+  function airportNode(d, form, errs) {
+    const w = el('div', undefined, 'field'), id = 'f_' + d.name, l = el('label', d.label); l.htmlFor = id;
+    const q = el('input'); q.type = 'search'; q.id = id + '_q'; q.className = 'apt-q'; q.autocomplete = 'off'; q.dir = 'auto';
+    q.placeholder = L('searchAirport'); q.setAttribute('aria-label', d.label + ' — ' + L('searchAirport'));
+    const c = el('select'); c.id = id; c.name = d.name;
+    const hint = el('p', '', 'apt-hint', { 'aria-live': 'polite' });
+    const all = d.airports || [];
+    if (!all.length) { // list not loaded yet: show an inactive placeholder instead of an empty list
+      q.disabled = true; const o = el('option', '...'); o.value = ''; c.append(o); c.disabled = true;
+      w.append(l, q, c, el('p', '', 'err', { 'aria-live': 'polite' })); return w;
+    }
+    const fill = (matches, keep) => {
+      c.replaceChildren();
+      if (!matches.length) { const o = el('option', L('noMatch')); o.value = ''; c.append(o); form[d.name] = ''; hint.textContent = L('noMatch'); return; }
+      matches.forEach(a => { const o = el('option', LiveFlights.label(a, S.lang)); o.value = a.code; c.append(o); });
+      c.value = matches.some(a => a.code === keep) ? keep : matches[0].code;
+      form[d.name] = c.value; hint.textContent = L('count')(matches.length);
+    };
+    fill(LiveFlights.filter(all, ''), form[d.name]);
+    q.oninput = () => fill(LiveFlights.filter(all, q.value), form[d.name]);
+    q.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); c.focus(); } };
+    c.onchange = () => { form[d.name] = c.value; };
+    const p = el('p', errs[d.name] ? errText(errs[d.name]) : '', 'err', { 'aria-live': 'polite' });
+    if (errs[d.name]) c.setAttribute('aria-invalid', 'true');
+    w.append(l, q, c, hint, p); return w;
+  }
   function fieldNode(d, form, errs) {
+    if (d.kind === 'airport') return airportNode(d, form, errs);
     const w = el('div', undefined, 'field'), id = 'f_' + d.name, l = el('label', d.label); l.htmlFor = id;
     const c = d.kind === 'select' ? el('select') : el('input');
     c.id = id; c.name = d.name;
@@ -66,20 +124,35 @@
     if (d.ltr) c.dir = 'ltr';
     c.value = form[d.name] ?? d.val ?? ''; form[d.name] = c.value;
     c.oninput = c.onchange = () => { form[d.name] = c.value; };
-    const p = el('p', errs[d.name] ? t('err_' + errs[d.name]) : '', 'err', { 'aria-live': 'polite' });
+    const p = el('p', errs[d.name] ? errText(errs[d.name]) : '', 'err', { 'aria-live': 'polite' });
     if (errs[d.name]) c.setAttribute('aria-invalid', 'true');
     w.append(l, c, p); return w;
   }
   function fmtRow(k, v) {
-    if (k === 'stops') return v === 0 ? t('nonstop') : v + ' ' + t('stopWord');
-    if (k === 'fare') return t('fare_' + v); if (k === 'cancel') return t('cancel_' + v);
+    if (k === 'stops') return v === null || v === undefined ? '-' : v === 0 ? t('nonstop') : v + ' ' + t('stopWord');
+    if (k === 'fare') return t('fare_' + v) === 'fare_' + v ? v : t('fare_' + v); if (k === 'cancel') return t('cancel_' + v) === 'cancel_' + v ? v : t('cancel_' + v);
     return v;
   }
   function run(root, service, flow) {
     const steps = flow === 'travel' ? ['search', 'results', 'details', 'review', 'done'] : ['form', 'review', 'done'];
-    const st = { i: 0, form: {}, cust: {}, pick: null, rec: null, errs: {} };
+    const st = { i: 0, form: {}, cust: {}, pick: null, rec: null, errs: {}, airportReady: service !== 'flight', airportError: '', searching: false };
     const ds = defs(service);
     const box = el('div'); root.append(box); draw();
+    function loadAirports() {
+      st.airportReady = false; st.airportError = '';
+      if (!window.LiveFlights) { st.airportError = 'js/live-flights.js was not loaded (missing file or blocked script).'; if (st.i === 0) draw(); return; }
+      LiveFlights.airports().then(r => {
+        const list = r.airports, has = c => list.some(a => a.code === c);
+        for (const d of ds.filter(x => x.name === 'from' || x.name === 'to')) d.airports = list;
+        for (const d of ds.filter(x => x.name === 'from' || x.name === 'to')) d.opts = list.map(a => [a.code, LiveFlights.label(a, S.lang)]);
+        st.airportSource = { fictional: r.fictional, source: r.source, n: list.length };
+        // Same defaults as the old five-city list (Baghdad -> Mashhad) when the backend has them; the person can change both freely.
+        if (!st.form.from) st.form.from = has('BGW') ? 'BGW' : list[0].code;
+        if (!st.form.to) st.form.to = has('MHD') && st.form.from !== 'MHD' ? 'MHD' : (list.find(a => a.code !== st.form.from) || list[0]).code;
+        st.airportReady = true; if (st.i === 0) draw();
+      }).catch(e => { st.airportError = e.message || String(e); if (st.i === 0) draw(); });
+    }
+    if (service === 'flight') loadAirports();
 
     function progress() {
       const ol = el('ol', undefined, 'progress', { 'aria-label': t('prog') });
@@ -107,19 +180,44 @@
       box.append(body);
       if (s === 'search' || s === 'form') {
         if (flow === 'fin' && ds.some(d => d.name === 'bank')) body.append(el('p', t('banksNote'), 'note'));
+        if (service === 'flight' && !st.airportReady) {
+          if (st.airportError) {
+            body.append(el('p', L('airportsFailed') + st.airportError, 'note warn', { role: 'alert' }));
+            const rb = el('button', L('retry'), 'cta small'); rb.type = 'button'; rb.onclick = () => { loadAirports(); draw(); }; body.append(rb);
+          } else body.append(el('p', L('loadingAirports'), 'note', { role: 'status' }));
+        } else if (service === 'flight' && st.airportSource) {
+          const sr = st.airportSource;
+          body.append(el('p', (sr.fictional ? L('airportsDemo') : L('airportsLive'))(sr.n), 'note ' + (sr.fictional ? 'src-demo' : 'src-live')));
+        }
         const g = el('div', undefined, 'fields'); ds.forEach(d => g.append(fieldNode(d, st.form, st.errs))); body.append(g);
         body.append(nav(() => {
+          if (service === 'flight' && !st.airportReady) return;
           st.errs = check(ds, st.form);
           if (Object.keys(st.errs).length) { draw(); const bad = box.querySelector('[aria-invalid]'); if (bad) bad.focus(); return; }
           st.i++; draw();
         }, flow === 'travel' ? t('search') : t('next')));
       } else if (s === 'results') {
-        body.append(el('p', t('loading'), 'muted'));
-        setTimeout(() => {
+        body.append(el('p', service === 'flight' ? L('searching') : t('loading'), 'muted', { role: 'status' }));
+        (async () => {
           if (steps[st.i] !== 'results') return;
-          body.replaceChildren(el('p', t('fictional'), 'note'));
+          let all, fictional = true, inbound = [];
+          try {
+            if (service === 'flight') {
+              const answer = await LiveFlights.search(st.form);
+              fictional = answer.fictional === true;
+              all = fictional ? (answer.results || []).map(r => ({id:r.id, fictional:true, title:r.airline, price:r.price.amountToman, rows:{depAirport:r.from, arrAirport:r.to, dep:r.departure, arr:r.arrival||'-', duration:'-', stops:r.stops, baggage:r.baggage, fare:r.cabin, cancel:'-'}})) : (answer.results || []).map(LiveFlights.displayed);
+              inbound = (answer.returnResults || []).map(LiveFlights.displayed);
+            } else all = P.search(service, st.form);
+          } catch (err) {
+            if (steps[st.i] === 'results') body.replaceChildren(el('p', L('searchFailed') + (err && err.message || err), 'note warn', { role: 'alert' }), nav(null));
+            return;
+          }
+          if (steps[st.i] !== 'results') return;
+          body.replaceChildren();
+          if (fictional) body.append(el('p', (service === 'flight' ? L('demoBanner') + ' — ' : '') + t('fictional'), 'note warn src-demo'));
+          else body.append(el('p', L('liveBanner'), 'note src-live'));
           if (service === 'flight') body.append(el('p', t('paxNote'), 'muted'));
-          const all = P.search(service, st.form), view = { sort: 'price', nonstop: false }, bar = el('div', undefined, 'fields'), list = el('div');
+          const view = { sort: 'price', nonstop: false }, bar = el('div', undefined, 'fields'), list = el('div');
           const sw = el('div', undefined, 'field'), sl = el('label', t('sortBy')), ss = el('select'); sl.htmlFor = 'f_sort'; ss.id = 'f_sort';
           [['price', 'sort_price'], ['duration', 'sort_duration'], ['dep', 'sort_dep']].forEach(([v, k]) => { const o = el('option', t(k)); o.value = v; ss.append(o); });
           sw.append(sl, ss); bar.append(sw);
@@ -127,13 +225,13 @@
           if (service === 'flight') { const w = el('div', undefined, 'field'), l = el('label', t('onlyNonstop')); nsc = el('input'); nsc.type = 'checkbox'; nsc.id = 'f_ns'; l.htmlFor = 'f_ns'; w.append(l, nsc); bar.append(w); }
           const card = r => {
             const c = el('article', undefined, 'result'), h = el('div', undefined, 'rh');
-            h.append(el('strong', r.title || (t('svc')[service] + ' #' + (r.id.slice(-1) * 1 + 1))), el('span', t('sample'), 'badge'));
+            h.append(el('strong', r.title || t('svc')[service])); if (r.fictional) h.append(el('span', t('sample'), 'badge')); else if (service === 'flight') h.append(el('span', L('liveBadge'), 'live-badge'));
             c.append(h);
             const rows = el('dl', undefined, 'rows');
             Object.entries(r.rows).forEach(([k, v]) => rows.append(el('dt', t('r_' + k)), el('dd', String(fmtRow(k, v)))));
             c.append(rows);
-            const f = el('div', undefined, 'rf'); f.append(el('strong', num(r.price) + ' ' + t('toman')));
-            const b = el('button', t('selectBtn'), 'cta small'); b.type = 'button'; b.onclick = () => { st.pick = r; st.i++; draw(); }; f.append(b); c.append(f); return c;
+            const f = el('div', undefined, 'rf'); f.append(el('strong', Number.isFinite(Number(r.price)) && r.price !== null ? num(r.price) + ' ' + t('toman') : L('noPrice')));
+            if (r.fictional) { const b = el('button', t('selectBtn'), 'cta small'); b.type = 'button'; b.onclick = () => { st.pick = r; st.i++; draw(); }; f.append(b); } c.append(f); return c;
           };
           const paint = () => {
             const rows = MI.sortResults(MI.filterResults(all, { nonstop: view.nonstop }), view.sort);
@@ -143,7 +241,8 @@
           ss.onchange = () => { view.sort = ss.value; paint(); };
           if (nsc) nsc.onchange = () => { view.nonstop = nsc.checked; paint(); };
           body.append(bar, list, nav(null)); paint();
-        }, 350);
+          if (inbound.length) { body.append(el('h3', L('returnFlights'))); inbound.forEach(r => body.append(card(r))); }
+        })();
       } else if (s === 'details') {
         const dd = detailDefs(), g = el('div', undefined, 'fields'); dd.forEach(d => g.append(fieldNode(d, st.cust, st.errs))); body.append(g);
         body.append(nav(() => { st.errs = check(dd, st.cust); if (Object.keys(st.errs).length) { draw(); const bad = box.querySelector('[aria-invalid]'); if (bad) bad.focus(); return; } st.i++; draw(); }));
