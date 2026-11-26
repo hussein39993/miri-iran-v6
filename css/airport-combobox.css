@@ -1,32 +1,31 @@
-/* Miri Iran V6 - airport combobox styles. Uses logical properties, so it works in RTL (Arabic/Persian) and LTR.
-   Colours can be overridden with the --mac-* variables. No inline styles are needed by the script. */
-.mac { --mac-bg:#fff; --mac-fg:#0c2340; --mac-muted:#5b6b82; --mac-line:#c9d3e0; --mac-accent:#d9a73a; --mac-hover:#eef3fa; --mac-active:#fff3d6;
+/* Miri Iran V6 - airport combobox styles. Logical properties, so it works in RTL (Arabic/Persian) and LTR.
+   Colours follow the site's own variables (--card --bg --ink --muted --line --gold) and its [data-theme=dark] switch;
+   the fallbacks below are only used on pages that do not define them (for example airport-demo.html). */
+.mac { --mac-bg:var(--card,#fff); --mac-field:var(--bg,#fff); --mac-fg:var(--ink,#0c2340); --mac-muted:var(--muted,#5b6b82); --mac-line:var(--line,#c9d3e0); --mac-accent:var(--gold,#d9a73a); --mac-hover:#eef3fa; --mac-active:#fff3d6;
   position: relative; display: block; width: 100%; color: var(--mac-fg); font: inherit; }
-@media (prefers-color-scheme: dark) { .mac { --mac-bg:#13233a; --mac-fg:#e8eef7; --mac-muted:#9db0c8; --mac-line:#294263; --mac-hover:#1b3050; --mac-active:#3a3017; } }
-.mac-label { display: block; margin-block-end: 4px; font-size: 14px; color: var(--mac-muted); }
-.mac-field { position: relative; display: flex; align-items: center; }
-.mac-input { width: 100%; box-sizing: border-box; min-height: 48px; padding-block: 10px; padding-inline: 14px 44px;
+[data-theme="dark"] .mac { --mac-hover:#1b3050; --mac-active:#3a3017; }
+.mac .mac-label { display: block; margin: 0 0 4px; font-size: 13px; color: var(--mac-muted); }
+.mac .mac-field { position: relative; display: flex; align-items: center; }
+.mac .mac-input { width: 100%; height: auto; box-sizing: border-box; min-height: 48px; padding-block: 10px; padding-inline: 12px 44px;
   font: inherit; font-size: 16px; /* 16px stops iOS Safari from zooming the page on focus */
-  color: var(--mac-fg); background: var(--mac-bg); border: 1px solid var(--mac-line); border-radius: 10px; text-align: start; text-overflow: ellipsis; }
-.mac-input::placeholder { color: var(--mac-muted); }
-.mac-input:focus-visible, .mac-clear:focus-visible, .mac-retry:focus-visible { outline: 3px solid var(--mac-accent); outline-offset: 1px; }
-.mac-input[aria-invalid="true"] { border-color: #b3261e; }
-.mac-clear { position: absolute; inset-inline-end: 4px; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 8px; background: transparent;
+  color: var(--mac-fg); background: var(--mac-field); border: 1px solid var(--mac-line); border-radius: 10px; text-align: start; text-overflow: ellipsis; }
+.mac .mac-input::placeholder { color: var(--mac-muted); }
+.mac .mac-input:focus-visible, .mac .mac-clear:focus-visible, .mac .mac-retry:focus-visible { outline: 3px solid var(--mac-accent); outline-offset: 1px; }
+.mac .mac-clear { position: absolute; inset-inline-end: 4px; width: 40px; height: 40px; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent;
   color: var(--mac-muted); font-size: 24px; line-height: 1; cursor: pointer; }
-.mac-clear[hidden] { display: none; }
-.mac-list { position: absolute; z-index: 1000; inset-inline: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; box-sizing: border-box;
+.mac .mac-clear[hidden] { display: none; }
+.mac .mac-list { position: absolute; z-index: 1000; inset-inline: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; box-sizing: border-box;
   max-height: min(50vh, 320px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   background: var(--mac-bg); color: var(--mac-fg); border: 1px solid var(--mac-line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
-.mac-list[hidden] { display: none; }
-.mac-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 8px 12px; border-radius: 8px; cursor: pointer; touch-action: manipulation; }
-.mac-opt:hover { background: var(--mac-hover); }
-.mac-opt[aria-selected="true"] { background: var(--mac-active); box-shadow: inset 0 0 0 2px var(--mac-accent); }
-.mac-opt--off, .mac-opt--off:hover { opacity: .45; cursor: not-allowed; background: transparent; }
-.mac-opt-text { display: flex; flex-direction: column; min-width: 0; }
-.mac-opt-name { overflow-wrap: anywhere; }
-.mac-opt-sub { font-size: 13px; color: var(--mac-muted); overflow-wrap: anywhere; }
-.mac-opt-code { flex: none; min-width: 3.2em; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--mac-line); font: 700 13px/1.6 ui-monospace, Menlo, Consolas, monospace; text-align: center; letter-spacing: .04em; }
-.mac-msg { padding: 12px; color: var(--mac-muted); }
-.mac-retry { margin-inline-start: 6px; min-height: 40px; padding: 6px 14px; border: 0; border-radius: 8px; background: var(--mac-accent); color: #1c1400; font: inherit; font-weight: 700; cursor: pointer; }
-.mac-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-@media (prefers-reduced-motion: no-preference) { .mac-input { transition: border-color .15s; } }
+.mac .mac-list[hidden] { display: none; }
+.mac .mac-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; margin: 0; padding: 8px 12px; border-radius: 8px; cursor: pointer; touch-action: manipulation; line-height: 1.5; }
+.mac .mac-opt:hover { background: var(--mac-hover); }
+.mac .mac-opt[aria-selected="true"] { background: var(--mac-active); box-shadow: inset 0 0 0 2px var(--mac-accent); }
+.mac .mac-opt.mac-opt--off, .mac .mac-opt.mac-opt--off:hover { opacity: .45; cursor: not-allowed; background: transparent; }
+.mac .mac-opt-text { display: flex; flex-direction: column; min-width: 0; }
+.mac .mac-opt-name { overflow-wrap: anywhere; }
+.mac .mac-opt-sub { font-size: 13px; color: var(--mac-muted); overflow-wrap: anywhere; }
+.mac .mac-opt-code { flex: none; min-width: 3.2em; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--mac-line); font: 700 13px/1.6 ui-monospace, Menlo, Consolas, monospace; text-align: center; letter-spacing: .04em; }
+.mac .mac-msg { padding: 12px; color: var(--mac-muted); }
+.mac .mac-retry { margin-inline-start: 6px; min-height: 40px; padding: 6px 14px; border: 0; border-radius: 8px; background: var(--mac-accent); color: #1c1400; font: inherit; font-weight: 700; cursor: pointer; }
+.mac .mac-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
