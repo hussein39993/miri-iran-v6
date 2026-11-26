@@ -6,6 +6,8 @@ const { validateFlightSearch, todayIn } = require('./validate');
 const { createLogger } = require('./redact');
 const mock = require('./providers/mock');
 const { Charter724Adapter } = require('./charter724/adapter');
+const { createCors } = require('./cors');
+const BUILD = '2026-11-26-cors-1'; // shown by /api/health so you can confirm which version Render is running
 const ROOT = path.resolve(__dirname, '..');
 const STATIC_OK = /^\/(index\.html|styles\.css|js\/[A-Za-z0-9_.-]+\.js)$/; // allowlist: nothing else is ever served
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
@@ -15,9 +17,13 @@ function createApp(cfg, deps = {}) {
   const logger = deps.logger || createLogger(), mapping = deps.mapping || JSON.parse(fs.readFileSync(path.join(__dirname, 'charter724', 'mapping.json'), 'utf8'));
   const c724 = deps.charter724 || new Charter724Adapter({ cfg, mapping, fetchImpl: deps.fetchImpl, logger, now: deps.now });
   const problems = liveProblems(cfg, c724.isConfigured()), liveReady = cfg.mode === 'live' && problems.length === 0;
+  const cors = createCors({ origins: deps.corsOrigins });
+  // Behind Render's proxy every visitor shares the proxy's IP, so the rate limit would be shared by ALL visitors. On Render (or TRUST_PROXY=true) use the visitor IP from X-Forwarded-For.
+  const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : (process.env.TRUST_PROXY === 'true' || process.env.RENDER === 'true');
+  const clientIp = req => { if (trustProxy) { const x = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); if (/^[0-9a-fA-F:.]{3,45}$/.test(x)) return x; } return req.socket.remoteAddress || 'unknown'; };
   const hits = new Map();
   const json = (res, status, obj) => { const b = JSON.stringify(obj); res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...SEC }); res.end(b); };
-  const limited = ip => { const n = Date.now(), h = hits.get(ip); if (!h || n > h.reset) { hits.set(ip, { count: 1, reset: n + 60000 }); return false; } return ++h.count > cfg.rateLimitPerMin; };
+  const limited = ip => { const n = Date.now(); if (hits.size > 2000) for (const [k, v] of hits) if (n > v.reset) hits.delete(k); const h = hits.get(ip); if (!h || n > h.reset) { hits.set(ip, { count: 1, reset: n + 60000 }); return false; } return ++h.count > cfg.rateLimitPerMin; };
   const readJson = req => new Promise((ok, bad) => {
     let size = 0; const chunks = [];
     req.on('data', d => { size += d.length; if (size > 10240) { bad(new AppError(413, 'PAYLOAD_TOO_LARGE', 'Request body is too large.')); req.destroy(); } else chunks.push(d); });
@@ -33,8 +39,8 @@ function createApp(cfg, deps = {}) {
   async function route(req, res) {
     const u = new URL(req.url, 'http://x'), p = u.pathname, m = req.method;
     if (p.startsWith('/api/')) {
-      if (limited(req.socket.remoteAddress || 'unknown')) throw new AppError(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.');
-      if (p === '/api/health' && m === 'GET') return json(res, 200, { ok: true, mode: cfg.mode, liveFlights: liveReady, providerConfigured: c724.isConfigured() });
+      if (limited(clientIp(req))) { res.setHeader('Retry-After', '60'); throw new AppError(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.'); }
+      if (p === '/api/health' && m === 'GET') return json(res, 200, { ok: true, build: BUILD, cors: true, mode: cfg.mode, liveFlights: liveReady, providerConfigured: c724.isConfigured() });
       if (p === '/api/config' && m === 'GET') return json(res, 200, { mode: cfg.mode, liveFlights: liveReady, notice: liveReady ? 'live' : 'demo', ...(cfg.mode === 'live' && !liveReady ? { liveUnavailableReasons: problems.map(x => x.replace(/=.*/, '')) } : {}) });
       if (p === '/api/flights/search') {
         if (m !== 'POST') throw new AppError(405, 'METHOD_NOT_ALLOWED', 'Use POST.');
@@ -59,11 +65,11 @@ function createApp(cfg, deps = {}) {
     }
     throw new AppError(404, 'NOT_FOUND', 'Not found.');
   }
-  const handler = (req, res) => route(req, res).catch(e => {
+  const handler = (req, res) => { if (cors.apply(req, res)) return; route(req, res).catch(e => {
     const err = e instanceof AppError ? e : new AppError(500, 'INTERNAL_ERROR', 'Unexpected server error.');
     if (!(e instanceof AppError)) logger.error('unhandled error', { name: e && e.name, message: e && e.message });
     if (!res.headersSent) json(res, err.status, toBody(err));
-  });
-  return { handler, state: { liveReady, problems } };
+  }); };
+  return { handler, state: { liveReady, problems, corsOrigins: cors.origins, corsIgnored: cors.ignored } };
 }
 module.exports = { createApp };
