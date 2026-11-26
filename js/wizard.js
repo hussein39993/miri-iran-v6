@@ -87,8 +87,31 @@
   const show = (d, v) => (d.opts ? ((d.opts.find(o => o[0] === String(v)) || [])[1] ?? v) : (v || '-'));
 
   const errText = k => (TXT[k] && typeof TXT[k][S.lang] === 'string' ? TXT[k][S.lang] : t('err_' + k));
-  // Airport picker: a search box + a normal <select> (works with every phone keyboard and screen reader).
-  function airportNode(d, form, errs) {
+  // V6 Task 1: ONE searchable combobox per airport field (js/airport-combobox.js). The chosen IATA code is written straight into
+  // form.from / form.to, which the existing LiveFlights.search() already sends. Same airport in both fields is blocked by the combobox.
+  function comboAirportNode(d, form, errs, reg) {
+    const w = el('div', undefined, 'field'), host = el('div'), id = 'f_' + d.name + '_err', other = d.name === 'from' ? 'to' : 'from';
+    const p = el('p', errs[d.name] ? errText(errs[d.name]) : '', 'err', { 'aria-live': 'polite', id });
+    const cb = MiriAirportCombobox.mount(host, {
+      lang: S.lang, name: d.name, label: d.label, placeholder: L('searchAirport'),
+      getExcluded: () => form[other],
+      onChange: code => { form[d.name] = code; if (code) p.textContent = ''; }
+    });
+    cb.setAirports(d.combo);
+    if (form[d.name] && !cb.setValue(form[d.name])) form[d.name] = '';
+    cb.input.setAttribute('aria-describedby', id);
+    if (errs[d.name]) cb.input.setAttribute('aria-invalid', 'true');
+    reg.push(cb); w.append(host, p); return w;
+  }
+  // Airport list not loaded yet: one inactive field (the step shows a loading note or a retry button).
+  function waitingAirportNode(d) {
+    const w = el('div', undefined, 'field'), l = el('label', d.label), c = el('input'); c.id = 'f_' + d.name; l.htmlFor = c.id; c.disabled = true; c.placeholder = '...';
+    w.append(l, c, el('p', '', 'err', { 'aria-live': 'polite' })); return w;
+  }
+  const airportNode = (d, form, errs, reg) => !(d.airports || []).length ? waitingAirportNode(d)
+    : (window.MiriAirportCombobox && d.combo && reg) ? comboAirportNode(d, form, errs, reg) : legacyAirportNode(d, form, errs);
+  // Old picker (search box + <select>). Only used if js/airport-combobox.js did not load, so the page keeps working.
+  function legacyAirportNode(d, form, errs) {
     const w = el('div', undefined, 'field'), id = 'f_' + d.name, l = el('label', d.label); l.htmlFor = id;
     const q = el('input'); q.type = 'search'; q.id = id + '_q'; q.className = 'apt-q'; q.autocomplete = 'off'; q.dir = 'auto';
     q.placeholder = L('searchAirport'); q.setAttribute('aria-label', d.label + ' — ' + L('searchAirport'));
@@ -114,8 +137,8 @@
     if (errs[d.name]) c.setAttribute('aria-invalid', 'true');
     w.append(l, q, c, hint, p); return w;
   }
-  function fieldNode(d, form, errs) {
-    if (d.kind === 'airport') return airportNode(d, form, errs);
+  function fieldNode(d, form, errs, reg) {
+    if (d.kind === 'airport') return airportNode(d, form, errs, reg);
     const w = el('div', undefined, 'field'), id = 'f_' + d.name, l = el('label', d.label); l.htmlFor = id;
     const c = d.kind === 'select' ? el('select') : el('input');
     c.id = id; c.name = d.name;
@@ -145,6 +168,11 @@
         const list = r.airports, has = c => list.some(a => a.code === c);
         for (const d of ds.filter(x => x.name === 'from' || x.name === 'to')) d.airports = list;
         for (const d of ds.filter(x => x.name === 'from' || x.name === 'to')) d.opts = list.map(a => [a.code, LiveFlights.label(a, S.lang)]);
+        // Airports in the shape the searchable combobox expects (same data, same Arabic fallback names as LiveFlights).
+        if (window.MiriAirportCombobox) {
+          const combo = list.map(a => MiriAirportCombobox.normalizeAirport({ code: a.code, nameEn: a.en, nameFa: a.fa, nameAr: a.ar })).filter(Boolean);
+          for (const d of ds.filter(x => x.name === 'from' || x.name === 'to')) d.combo = combo;
+        }
         st.airportSource = { fictional: r.fictional, source: r.source, n: list.length };
         // Same defaults as the old five-city list (Baghdad -> Mashhad) when the backend has them; the person can change both freely.
         if (!st.form.from) st.form.from = has('BGW') ? 'BGW' : list[0].code;
@@ -175,6 +203,7 @@
       return g;
     }
     function draw() {
+      (st.combos || []).forEach(c => c.destroy()); st.combos = [];
       box.replaceChildren(progress());
       const s = steps[st.i], body = el('section', undefined, 'step');
       box.append(body);
@@ -189,9 +218,10 @@
           const sr = st.airportSource;
           body.append(el('p', (sr.fictional ? L('airportsDemo') : L('airportsLive'))(sr.n), 'note ' + (sr.fictional ? 'src-demo' : 'src-live')));
         }
-        const g = el('div', undefined, 'fields'); ds.forEach(d => g.append(fieldNode(d, st.form, st.errs))); body.append(g);
+        const g = el('div', undefined, 'fields'); ds.forEach(d => g.append(fieldNode(d, st.form, st.errs, st.combos))); body.append(g);
         body.append(nav(() => {
           if (service === 'flight' && !st.airportReady) return;
+          st.combos.forEach(c => c.commit()); // text typed but not yet confirmed (some phones do not blur the field when a button is tapped)
           st.errs = check(ds, st.form);
           if (Object.keys(st.errs).length) { draw(); const bad = box.querySelector('[aria-invalid]'); if (bad) bad.focus(); return; }
           st.i++; draw();

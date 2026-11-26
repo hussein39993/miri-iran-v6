@@ -142,7 +142,7 @@
     opts = opts || {};
     var lang = opts.lang || (root.document && root.document.documentElement.getAttribute('lang') || 'ar').slice(0, 2).toLowerCase();
     var T = TEXT[lang] || TEXT.ar, id = 'mac' + (++uid), doc = host.ownerDocument;
-    var st = { airports: [], selected: null, open: false, active: -1, items: [], dirty: false, loading: true, error: false, inList: false };
+    var st = { airports: [], selected: null, open: false, active: -1, items: [], dirty: false, loading: true, error: false, inList: false, blank: false, ph: null };
     var el = function (tag, cls, attrs) { var n = doc.createElement(tag); if (cls) n.className = cls; if (attrs) Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); }); return n; };
 
     var wrap = el('div', 'mac'), label = null;
@@ -165,9 +165,15 @@
     var excluded = function () { var x = opts.getExcluded && opts.getExcluded(); return x ? String(x).toUpperCase() : ''; };
     var query = function () { return st.dirty ? input.value : ''; };
 
+    var syncClear = function () { clearBtn.hidden = !(input.value || st.selected); };
+    // While a chosen airport is being edited the field is emptied and the chosen airport is shown as the (grey) placeholder.
+    // This is the same on every browser: typing can never be appended to the old text (select-all on focus is unreliable on phones).
+    function blankOut() { if (!st.selected || st.dirty || st.blank) return; st.blank = true; st.ph = input.getAttribute('placeholder'); input.setAttribute('placeholder', st.selected.display); input.value = ''; syncClear(); }
+    function restorePh() { if (!st.blank) return; st.blank = false; if (st.ph === null) input.removeAttribute('placeholder'); else input.setAttribute('placeholder', st.ph); st.ph = null; }
+
     function emit() {
       var code = st.selected ? st.selected.code : '';
-      hidden.value = code; clearBtn.hidden = !input.value; input.removeAttribute('aria-invalid');
+      hidden.value = code; syncClear(); input.removeAttribute('aria-invalid');
       var ev; try { ev = new root.CustomEvent('airportchange', { bubbles: true, detail: { code: code, airport: st.selected ? st.selected.raw : null, field: opts.name || '' } }); } catch (e) { ev = null; }
       if (ev) host.dispatchEvent(ev);
       if (opts.onChange) opts.onChange(code, st.selected ? st.selected.raw : null);
@@ -218,16 +224,16 @@
 
     function choose(a) {
       var ex = excluded(); if (!a || (ex && a.code === ex)) return false;
-      st.selected = a; st.dirty = false; input.value = a.display; st.open = false; st.active = -1; render(); emit(); return true;
+      restorePh(); st.selected = a; st.dirty = false; input.value = a.display; st.open = false; st.active = -1; render(); emit(); return true;
     }
     function clear(silent) {
-      var had = !!st.selected; st.selected = null; st.dirty = false; input.value = ''; st.open = false; st.active = -1; render();
+      restorePh(); var had = !!st.selected; st.selected = null; st.dirty = false; input.value = ''; st.open = false; st.active = -1; render();
       if (!silent || had) emit();
     }
-    function revert() { st.dirty = false; input.value = st.selected ? st.selected.display : ''; clearBtn.hidden = !input.value; }
+    function revert() { restorePh(); st.dirty = false; input.value = st.selected ? st.selected.display : ''; syncClear(); }
 
     function commitOrRevert() {
-      if (!st.dirty) { closeList(); return; }
+      if (!st.dirty) { closeList(); if (st.blank) { restorePh(); input.value = st.selected ? st.selected.display : ''; syncClear(); } return; }
       var txt = input.value.trim(), n = normalize(txt), ex = excluded(), pick = null;
       if (n) {
         var res = search(st.airports, txt).filter(function (a) { return !(ex && a.code === ex); });
@@ -239,13 +245,12 @@
 
     // ----- events -----
     input.addEventListener('input', function () {
-      st.dirty = true;
+      restorePh(); st.dirty = true;
       if (st.selected) { st.selected = null; hidden.value = ''; emit(); } // text changed: the old code must never be sent
-      clearBtn.hidden = !input.value; openList(false);
+      syncClear(); openList(false);
     });
     input.addEventListener('focus', function () {
-      if (st.selected) setTimeout(function () { try { input.select(); } catch (e) { /* ignore */ } }, 0);
-      openList(true);
+      blankOut(); openList(true);
     });
     input.addEventListener('click', function () { if (!st.open) openList(true); });
     input.addEventListener('keydown', function (e) {
@@ -260,7 +265,7 @@
       } else if (k === 'Enter') {
         if (st.open && st.active >= 0 && st.items[st.active]) { e.preventDefault(); choose(st.items[st.active].disabled ? null : st.items[st.active].a); }
       } else if (k === 'Escape') {
-        if (st.open) { e.preventDefault(); e.stopPropagation(); closeList(); } else if (input.value) { e.preventDefault(); clear(); }
+        if (st.open) { e.preventDefault(); e.stopPropagation(); closeList(); } else if (input.value || st.selected) { e.preventDefault(); clear(); }
       } else if (k === 'Tab') { /* blur handler commits */ }
     });
     list.addEventListener('pointerdown', function () { st.inList = true; });
@@ -293,6 +298,8 @@
       setError: function () { st.loading = false; st.error = true; render(); },
       setValue: function (code) { code = String(code || '').toUpperCase(); if (!code) { clear(); return true; } var a = st.airports.filter(function (x) { return x.code === code; })[0]; return a ? choose(a) : false; },
       clear: clear, refresh: function () { if (st.open) { compute(); render(); } },
+      // Confirms typed-but-unconfirmed text (exact IATA code or single match) or reverts it. Call before validating/searching.
+      commit: function () { commitOrRevert(); },
       validate: function () { var ok = !!st.selected; if (!ok) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid'); return ok; },
       message: T.required,
       focus: function () { input.focus(); },
