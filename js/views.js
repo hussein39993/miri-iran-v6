@@ -26,7 +26,8 @@
     root.append(el('h2', t('rideHistory')), rowsList(P.store.rides, r => line(r.id + ' · ' + fmtDate(r.at), num(r.quote.price) + ' ' + t('toman'), t('tx_stages')[STG[r.status]]), 'noRides'));
   }
 
-  function wallet(root) {
+  // Legacy single-balance demo kept as a fallback if wallet.js fails to load.
+  function legacyWallet(root) {
     const W = P.WALLET;
     const c = el('section', undefined, 'wcard'); c.append(el('small', t('wBalance')), el('p', num(W.balance) + ' ' + t('toman'), 'bal'));
     const sub = el('div', undefined, 'wsub'); sub.append(el('span', t('wAvail') + ': ' + num(W.available)), el('span', t('wPending') + ': ' + num(W.pending))); c.append(sub, el('small', t('balanceNote')));
@@ -35,6 +36,13 @@
     const paint = () => hist.replaceChildren(...P.store.activity.map(a => { const d = line(t('k_' + a.kind), (a.amount > 0 ? '+' : '') + num(a.amount), t('s_' + a.status)); return d; }));
     [['deposit', 'wDeposit'], ['transfer', 'wTransfer'], ['refund', 'wRefund']].forEach(([k, l]) => { const b = el('button', t(l), 'ghost2'); b.type = 'button'; b.onclick = () => { P.addSampleRequest(k); paint(); }; acts.append(b); });
     root.append(acts, el('p', t('wHint'), 'muted'), el('h2', t('wActivity')), hist); paint();
+  }
+
+  // V6 Stage 1: multi-currency wallet preview (see js/wallet.js). Falls back to the legacy demo if the module is missing.
+  function wallet(root) {
+    if (!window.Wallet || !window.MIW) return legacyWallet(root);
+    if (!root.querySelector('.svc-head')) root.append(el('h1', t('svc').wallet));
+    return Wallet.run(root);
   }
 
   function profile(root) {
@@ -51,7 +59,7 @@
     const head = el('div', undefined, 'svc-head'); head.append(svg(id), el('h1', t('svc')[id])); root.append(head);
     if (s.flow === 'travel' || s.flow === 'fin') { root.append(el('p', t('demo'), 'note')); if (t('finDesc')[id]) root.append(el('p', t('finDesc')[id], 'muted')); Wizard.run(root, id, s.flow); }
     else if (s.flow === 'taxi') return Taxi.run(root);
-    else if (s.flow === 'wallet') wallet(root);
+    else if (s.flow === 'wallet') return wallet(root) || noop;
     else if (s.flow === 'rates') root.append(el('p', t('ratesNote'), 'note'), el('p', t('irrNote'), 'muted'));
     else root.append(el('p', t('needPartner'), 'note'));
     return noop;
