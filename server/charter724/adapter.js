@@ -10,6 +10,7 @@ const pad2 = n => String(n).padStart(2, '0');
 const hhmm = v => { const m = /^(\d{1,2}):(\d{2})/.exec(String(v == null ? '' : v).trim()); return m ? pad2(m[1]) + ':' + m[2] : null; };
 const num = v => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const text = v => (v === null || v === undefined ? null : String(v));
+const normName = s => String(s == null ? '' : s).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640\u200c\u200d]/g, '').replace(/[يیى]/g, 'ی').replace(/[كک]/g, 'ک').replace(/[_\-.,()\s]+/g, ' ').trim();
 const slug = s => String(s == null ? '' : s).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 // Charter724 adapter. Paths, bodies and field names come from mapping.json (filled from docs/charter724-openapi.json).
@@ -19,9 +20,27 @@ class Charter724Adapter {
     this.client = new ProviderClient({ baseUrl: cfg.charter724.baseUrl, timeoutMs: cfg.charter724.timeoutMs, fetchImpl, logger });
     this.tokens = new TokenManager({ login: () => this._login(), now });
     this.airportCache = null;
+    // Flights whose route/date the provider does not state (or states in a form we cannot compare) are EXCLUDED unless this is explicitly enabled; they are then shown as unverified.
+    this.allowUnverified = process.env.CHARTER724_ALLOW_UNVERIFIED_ROUTES === 'true';
   }
   isConfigured() { const m = this.mapping || {}; return !!(m.auth && Array.isArray(m.auth.steps) && m.auth.steps.length && m.flightSearch && m.flightSearch.path && m.flightSearch.response); }
   isAirportsConfigured() { const a = (this.mapping || {}).airports; return !!(this.isConfigured() && a && a.path && a.response && a.response.fields && a.response.fields.code); }
+  // 'yes' = provider value is the requested airport, 'no' = it is a DIFFERENT airport, 'unknown' = missing or cannot be compared. Never guesses.
+  _airportMatch(value, code) {
+    const v = text(value); if (v === null || !v.trim()) return 'unknown';
+    const s = v.trim(), want = String(code).toUpperCase();
+    if (/^[A-Za-z]{3}$/.test(s)) return s.toUpperCase() === want ? 'yes' : 'no';
+    const list = this.airportCache && this.airportCache.list; if (!list) return 'unknown';
+    const n = normName(s), names = a => [a.nameEn, a.nameFa].filter(Boolean).map(normName), mine = list.find(a => a.code === want);
+    if (mine && names(mine).includes(n)) return 'yes';
+    return list.some(a => a.code !== want && names(a).includes(n)) ? 'no' : 'unknown';
+  }
+  // Same idea for the date. Only YYYY-MM-DD / YYYY/MM/DD (Gregorian) can be compared; anything else (missing, Jalali 13xx/14xx, free text) is 'unknown'.
+  _dateMatch(value, want) {
+    const s = text(value); if (!s) return 'unknown';
+    const m = /^(\d{4})[-\/](\d{2})[-\/](\d{2})/.exec(s.trim()); if (!m || Number(m[1]) < 1700) return 'unknown';
+    return m[1] + '-' + m[2] + '-' + m[3] === want ? 'yes' : 'no';
+  }
   _need() { if (!this.isConfigured()) throw new AppError(503, 'PROVIDER_NOT_CONFIGURED', 'Charter724 integration is not configured yet.'); }
 
   // Turns a provider error (HTTP status + documented Msg code) into our own error, using mapping.errors for the message.
@@ -100,7 +119,7 @@ class Charter724Adapter {
 
   // ---- Flight search. One-way = one "Available" call; round trip = two calls (outbound day, return day). ----
   async searchFlights(q) {
-    this._need(); const meta = { excluded: {}, unclassifiedCabins: [], currencies: [] };
+    this._need(); const meta = { excluded: {}, unclassifiedCabins: [], currencies: [], routeCheck: [] };
     const outbound = await this._searchLeg({ from: q.from, to: q.to, date: q.date }, q, meta);
     let inbound; if (q.trip === 'round') inbound = await this._searchLeg({ from: q.to, to: q.from, date: q.returnDate }, q, meta);
     meta.unclassifiedCabins = [...new Set(meta.unclassifiedCabins)].slice(0, 10); meta.currencies = [...new Set(meta.currencies)];
@@ -112,11 +131,17 @@ class Charter724Adapter {
     const list = m.response.listPath ? get(data, m.response.listPath) : data;
     if (list === undefined || list === null || list === '') return [];
     if (!Array.isArray(list)) throw new AppError(502, 'PROVIDER_BAD_RESPONSE', 'Unexpected flight list format.');
+    const ff = m.response.fields || {}, rawOf = (it, k) => (ff[k] ? text(get(it, ff[k])) : null), tally = new Map();
+    for (const it of list) { const key = ['from', 'to', 'departureDate'].map(k => { const v = rawOf(it, k); return v === null ? '' : String(v).slice(0, 30); }).join('|'); tally.set(key, (tally.get(key) || 0) + 1); }
+    const check = { requested: { from: leg.from, to: leg.to, date: leg.date }, sent: m.body ? fill(m.body, { ...leg, returnDate: q.returnDate, adults: q.adults, children: q.children, infants: q.infants, cabin: q.cabin, trip: q.trip }) : null, providerCount: list.length,
+      providerRoutes: [...tally].slice(0, 10).map(([k, n]) => { const [from, to, date] = k.split('|'); return { from, to, date, count: n }; }), kept: 0 };
+    meta.routeCheck.push(check);
     const out = [], ids = new Set(), skip = k => { meta.excluded[k] = (meta.excluded[k] || 0) + 1; };
     for (const it of list) {
       const r = this._normalize(it, leg, q, m.response, meta); if (r.skip) { skip(r.skip); continue; }
       let id = r.item.id, n = 2; while (ids.has(id)) id = r.item.id + '-' + n++; ids.add(id); r.item.id = id; out.push(r.item);
     }
+    check.kept = out.length;
     return out;
   }
   _cabin(it, rules) {
@@ -128,6 +153,13 @@ class Charter724Adapter {
   }
   _normalize(it, leg, q, resp, meta) {
     const f = resp.fields || {}, g = k => (f[k] ? get(it, f[k]) : undefined);
+    // Route/date verification comes FIRST. The requested airports/date are never copied onto a flight the provider did not describe that way.
+    const fm = this._airportMatch(g('from'), leg.from), tm = this._airportMatch(g('to'), leg.to), dm = this._dateMatch(g('departureDate'), leg.date);
+    if (fm === 'no' || tm === 'no') return { skip: 'routeMismatch' };
+    if (dm === 'no') return { skip: 'dateMismatch' };
+    const routeOk = fm === 'yes' && tm === 'yes', dateOk = dm === 'yes';
+    if (!routeOk && !this.allowUnverified) return { skip: 'unverifiedRoute' };
+    if (!dateOk && !this.allowUnverified) return { skip: 'unverifiedDate' };
     const cab = this._cabin(it, resp.cabin);
     if (cab.cabin === 'unknown') { if (cab.label) meta.unclassifiedCabins.push(cab.label); return { skip: 'unknownCabin' }; }
     if (cab.cabin && cab.cabin !== q.cabin) return { skip: 'otherCabin' };
@@ -142,14 +174,15 @@ class Charter724Adapter {
     const tt = toToman(total, cur); if (tt.amountToman === null) return { skip: 'unsupportedCurrency' };
     const unit = v => (v > 0 ? toToman(v, cur).amountToman : null);
     const hasStop = g('hasStop') === undefined || g('hasStop') === null ? null : Number(g('hasStop')) !== 0;
-    const dep = hhmm(g('departure')), date = text(g('departureDate')) || leg.date, number = text(g('flightNumber')), cabinCode = text(g('cabinCode')), agency = num(g('agencyId'));
+    const dep = hhmm(g('departure')), date = text(g('departureDate')), number = text(g('flightNumber')), cabinCode = text(g('cabinCode')), agency = num(g('agencyId'));
     const bag = num(g('baggageKg'));
     const rules = g('cancellationRules'), alts = g('alternatives');
     const item = {
-      id: 'C724-' + [agency, leg.from, leg.to, date, dep && dep.replace(':', ''), number, cabinCode].map(slug).filter(Boolean).join('-'),
+      id: 'C724-' + [agency, routeOk ? leg.from : g('from'), routeOk ? leg.to : g('to'), date, dep && dep.replace(':', ''), number, cabinCode].map(slug).filter(Boolean).join('-'),
       source: 'charter724', fictional: false,
       airline: text(g('airline')), airlineCode: text(g('airlineCode')), flightNumber: number,
-      from: text(g('from')) || leg.from, to: text(g('to')) || leg.to,
+      from: routeOk ? String(leg.from).toUpperCase() : null, to: routeOk ? String(leg.to).toUpperCase() : null, // verified codes only, else null (never the requested airports by default)
+      providerFrom: text(g('from')), providerTo: text(g('to')), verification: { route: routeOk, date: dateOk }, routeVerified: routeOk && dateOk,
       departureDate: date, departure: dep, arrivalDate: text(g('arrivalDate')), arrival: hhmm(g('arrival')),
       durationMinutes: num(g('durationMinutes')), hasStop, stops: hasStop === null ? null : hasStop ? null : 0,
       baggageKg: bag, baggage: bag === null ? null : bag + 'kg',
@@ -158,7 +191,7 @@ class Charter724Adapter {
       cancellationRules: Array.isArray(rules) ? rules.map(x => ({ percent: num(x && x.percent), description: text(x && x.description) })) : [],
       alternatives: Array.isArray(alts) ? alts.map(x => ({ providerType: text(x && x.type), cabinLabel: text(x && (x.type_flight || x.DisplayLable)), capacity: num(x && x.capacity), adultPriceToman: x && num(x.price_final) > 0 ? toToman(x.price_final, x.currency || cur).amountToman : null, bookable: false })) : [],
       // Identifiers that the documented reservation start (GetCaptcha) will need later. Booking is NOT implemented; a future booking step must re-search and re-check the price on the server.
-      providerRef: { ajency_online_ID: agency, from_flight: leg.from, to_flight: leg.to, date_flight: date, time_flight: text(g('departure')), number_flight: number, airline: text(g('airline')), cabinclass: cabinCode, sellingType: text(g('sellingType')) }
+      providerRef: { ajency_online_ID: agency, from_flight: routeOk ? leg.from : text(g('from')), to_flight: routeOk ? leg.to : text(g('to')), date_flight: date, time_flight: text(g('departure')), number_flight: number, airline: text(g('airline')), cabinclass: cabinCode, sellingType: text(g('sellingType')) }
     };
     return { item };
   }
