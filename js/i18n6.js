@@ -2,7 +2,7 @@
 (function () {
 const add = {
 ar:{
-w_demoBanner:'المرحلة 1: واجهة تجريبية. الأرصدة وأسعار الصرف أمثلة فقط. لا توجد مدفوعات حقيقية ولا إضافة رصيد ولا تحويل فعلي.',
+w_demoBanner:'المرحلة 2: أسعار الصرف والعمولات تأتي من الإدارة. أما الأرصدة والمعاملات فهي أمثلة تجريبية. لا توجد مدفوعات حقيقية ولا إضافة رصيد ولا تحويل فعلي.',
 w_indep:'كل عملة مستقلة. لا يتم أي تحويل بين العملات دون تأكيد واضح منك.',
 w_example:'مثال', w_balances:'أرصدتي', w_pending:'إيداعات معلّقة',
 w_cur_IQD:'دينار عراقي', w_cur_USD:'دولار أمريكي', w_cur_IRT:'تومان إيراني',
@@ -26,9 +26,9 @@ w_exTitle:'تحويل العملات', w_from:'من', w_to:'إلى', w_swap:'ع�
 w_expires:'ينتهي السعر بعد', w_secs:'ثانية', w_expired:'انتهى وقت السعر. حدّثه.', w_refresh:'تحديث السعر',
 w_confirmOff:'تأكيد التحويل (معطّل في المرحلة 1)', w_confirmNote:'معاينة فقط. لا يتغير أي رصيد.',
 w_err_invalid:'أدخل مبلغاً صحيحاً (أرقاماً فقط، وللدولار حتى رقمين بعد الفاصلة).', w_err_same:'اختر عملتين مختلفتين.',
-w_err_noRate:'لا يوجد سعر صرف صالح لهذا التحويل، لذلك التحويل معطّل.', w_err_min:'المبلغ أقل من الحد الأدنى:', w_err_max:'المبلغ أكبر من الحد الأقصى:',
+w_err_noRate:'لا يوجد سعر صرف صالح الآن (غير متوفر أو منتهي)، لذلك العملية معطّلة.', w_err_min:'المبلغ أقل من الحد الأدنى:', w_err_max:'المبلغ أكبر من الحد الأقصى:',
 w_err_insufficient:'الرصيد المتاح غير كافٍ.', w_err_notAllowed:'هذا الاختيار غير متاح لعملة الإيداع.', w_err_method:'اختر طريقة دفع متاحة.',
-w_ratesTitle:'أسعار الصرف الحالية', w_ratesNote:'أسعار تجريبية للمعاينة فقط. في المرحلة القادمة يحدد المسؤول الأسعار اليومية من الخادم.',
+w_ratesTitle:'أسعار الصرف الحالية', w_ratesNote:'الأسعار تحددها الإدارة وتتغير يومياً. كل سعر له مدة صلاحية، وبعد انتهائها تتوقف التحويلات حتى يصدر سعر جديد.',
 w_modeDirect:'مُدخل مباشرة', w_modeVia:'محسوب عبر الدولار', w_tomanNote:'كل مبالغ IRT بالتومان وليست بالريال. 1 تومان = 10 ريال.',
 w_calcTitle:'حاسبة سعر الصرف', w_calcHint:'اكتب مبلغاً لتحسب المبلغ المتوقع قبل الشحن.', w_limits:'حدود التحويل الواحد', w_commission:'العمولة',
 w_histTitle:'سجل المعاملات', w_histNote:'المعاملات الظاهرة أمثلة تجريبية. أي طلب جديد يبقى في الذاكرة فقط حتى تغلق الصفحة.',
@@ -36,10 +36,21 @@ w_fDateFrom:'من تاريخ', w_fDateTo:'إلى تاريخ', w_fCurrency:'ال�
 w_txId:'رقم المعاملة', w_custId:'رقم العميل', w_orig:'المبلغ الأصلي', w_dest:'العملة المستلمة', w_final:'المبلغ النهائي', w_method:'طريقة الدفع', w_when:'التاريخ',
 w_ty_funding:'شحن', w_ty_exchange:'تحويل عملة', w_ty_refund:'استرداد', w_ty_adjustment:'تعديل إداري',
 w_stt_pending:'معلّقة', w_stt_under_review:'قيد المراجعة', w_stt_approved:'موافق عليها', w_stt_completed:'مكتملة', w_stt_rejected:'مرفوضة', w_stt_failed:'فاشلة', w_stt_cancelled:'ملغاة', w_stt_refunded:'مستردة',
-w_supportTitle:'الدعم الفني', w_supportNote:'للمساعدة في الشحن أو للاستفسار، راسلنا عبر واتساب.', w_chat:'مراسلة الدعم على واتساب', w_ticket:'فتح نموذج الدعم'
+w_supportTitle:'الدعم الفني', w_supportNote:'للمساعدة في الشحن أو للاستفسار، راسلنا عبر واتساب.', w_chat:'مراسلة الدعم على واتساب', w_ticket:'فتح نموذج الدعم',
+w_rt_loading:'جارٍ تحميل أسعار الصرف...',
+w_rt_unavailable:'لم تُنشر أسعار الصرف بعد. التحويل والتقدير معطّلان.',
+w_rt_expired:'انتهت صلاحية أسعار الصرف. التحويل والتقدير معطّلان حتى ينشر المسؤول أسعاراً جديدة.',
+w_rt_error:'تعذّر تحميل أسعار الصرف. التحويل والتقدير معطّلان.',
+w_rt_invalid:'أسعار الصرف المستلمة غير صالحة، لذلك التحويل معطّل.',
+w_retry:'إعادة المحاولة',
+w_updated:'آخر تحديث',
+w_validUntil:'سارية حتى',
+w_ffee:'عمولة الشحن',
+w_xfee:'عمولة التحويل',
+w_pairs:'أسعار التحويل بين العملات'
 },
 fa:{
-w_demoBanner:'مرحله ۱: رابط کاربری آزمایشی. موجودی‌ها و نرخ‌ها فقط نمونه هستند. هیچ پرداخت واقعی، شارژ واقعی یا تبدیل واقعی انجام نمی‌شود.',
+w_demoBanner:'مرحله ۲: نرخ‌ها و کارمزدها را مدیریت تعیین می‌کند. اما موجودی‌ها و تراکنش‌ها نمونه آزمایشی هستند. هیچ پرداخت واقعی، شارژ واقعی یا تبدیل واقعی انجام نمی‌شود.',
 w_indep:'هر ارز مستقل است. بدون تأیید صریح شما هیچ تبدیلی بین ارزها انجام نمی‌شود.',
 w_example:'نمونه', w_balances:'موجودی‌های من', w_pending:'واریزهای در انتظار',
 w_cur_IQD:'دینار عراق', w_cur_USD:'دلار آمریکا', w_cur_IRT:'تومان ایران',
@@ -63,9 +74,9 @@ w_exTitle:'تبدیل ارز', w_from:'از', w_to:'به', w_swap:'جابجای�
 w_expires:'اعتبار نرخ تا', w_secs:'ثانیه', w_expired:'اعتبار نرخ تمام شد. آن را تازه کنید.', w_refresh:'تازه‌سازی نرخ',
 w_confirmOff:'تأیید تبدیل (در مرحله ۱ غیرفعال)', w_confirmNote:'فقط پیش‌نمایش. موجودی تغییر نمی‌کند.',
 w_err_invalid:'مبلغ معتبر وارد کنید (فقط عدد؛ برای دلار حداکثر دو رقم اعشار).', w_err_same:'دو ارز متفاوت انتخاب کنید.',
-w_err_noRate:'نرخ معتبری برای این تبدیل وجود ندارد، پس تبدیل غیرفعال است.', w_err_min:'مبلغ کمتر از حداقل است:', w_err_max:'مبلغ بیشتر از حداکثر است:',
+w_err_noRate:'اکنون نرخ معتبری وجود ندارد (در دسترس نیست یا منقضی شده)، پس عملیات غیرفعال است.', w_err_min:'مبلغ کمتر از حداقل است:', w_err_max:'مبلغ بیشتر از حداکثر است:',
 w_err_insufficient:'موجودی کافی نیست.', w_err_notAllowed:'این انتخاب برای ارز واریز مجاز نیست.', w_err_method:'یک روش پرداخت فعال انتخاب کنید.',
-w_ratesTitle:'نرخ‌های فعلی', w_ratesNote:'نرخ‌های آزمایشی فقط برای پیش‌نمایش. در مرحله بعد، مدیر نرخ‌های روزانه را از سرور تعیین می‌کند.',
+w_ratesTitle:'نرخ‌های فعلی', w_ratesNote:'نرخ‌ها را مدیریت تعیین می‌کند و روزانه تغییر می‌کند. هر نرخ مدت اعتبار دارد و پس از آن تبدیل تا انتشار نرخ جدید متوقف می‌شود.',
 w_modeDirect:'ورود مستقیم', w_modeVia:'محاسبه از طریق دلار', w_tomanNote:'همه مبالغ IRT به تومان است، نه ریال. ۱ تومان = ۱۰ ریال.',
 w_calcTitle:'ماشین‌حساب نرخ تبدیل', w_calcHint:'مبلغی بنویسید تا مبلغ تقریبی را پیش از شارژ ببینید.', w_limits:'محدوده هر تبدیل', w_commission:'کارمزد',
 w_histTitle:'تاریخچه تراکنش‌ها', w_histNote:'تراکنش‌های نمایش‌داده‌شده نمونه هستند. درخواست‌های جدید فقط تا بستن صفحه در حافظه می‌مانند.',
@@ -73,10 +84,21 @@ w_fDateFrom:'از تاریخ', w_fDateTo:'تا تاریخ', w_fCurrency:'ارز'
 w_txId:'شناسه تراکنش', w_custId:'شناسه مشتری', w_orig:'مبلغ اصلی', w_dest:'ارز مقصد', w_final:'مبلغ نهایی', w_method:'روش پرداخت', w_when:'تاریخ',
 w_ty_funding:'شارژ', w_ty_exchange:'تبدیل ارز', w_ty_refund:'بازپرداخت', w_ty_adjustment:'تعدیل مدیریتی',
 w_stt_pending:'در انتظار', w_stt_under_review:'در حال بررسی', w_stt_approved:'تأییدشده', w_stt_completed:'انجام‌شده', w_stt_rejected:'ردشده', w_stt_failed:'ناموفق', w_stt_cancelled:'لغوشده', w_stt_refunded:'بازپرداخت‌شده',
-w_supportTitle:'پشتیبانی', w_supportNote:'برای کمک در شارژ یا پرسش، از طریق واتساپ پیام دهید.', w_chat:'پیام به پشتیبانی در واتساپ', w_ticket:'باز کردن فرم پشتیبانی'
+w_supportTitle:'پشتیبانی', w_supportNote:'برای کمک در شارژ یا پرسش، از طریق واتساپ پیام دهید.', w_chat:'پیام به پشتیبانی در واتساپ', w_ticket:'باز کردن فرم پشتیبانی',
+w_rt_loading:'در حال بارگذاری نرخ‌ها...',
+w_rt_unavailable:'هنوز نرخی منتشر نشده است. تبدیل و برآورد غیرفعال است.',
+w_rt_expired:'اعتبار نرخ‌ها تمام شده است. تبدیل و برآورد تا انتشار نرخ جدید توسط مدیر غیرفعال است.',
+w_rt_error:'بارگذاری نرخ‌ها ممکن نشد. تبدیل و برآورد غیرفعال است.',
+w_rt_invalid:'نرخ‌های دریافتی معتبر نیستند، پس تبدیل غیرفعال است.',
+w_retry:'تلاش دوباره',
+w_updated:'آخرین به‌روزرسانی',
+w_validUntil:'معتبر تا',
+w_ffee:'کارمزد شارژ',
+w_xfee:'کارمزد تبدیل',
+w_pairs:'نرخ تبدیل بین ارزها'
 },
 en:{
-w_demoBanner:'Stage 1: demo interface. Balances and exchange rates are examples only. No real payments, no real credits, no real conversions.',
+w_demoBanner:'Stage 2: exchange rates and commissions come from the administrator. Balances and transactions are demo examples. No real payments, no real credits, no real conversions.',
 w_indep:'Each currency is independent. No conversion happens without your explicit confirmation.',
 w_example:'Example', w_balances:'My balances', w_pending:'Pending deposits',
 w_cur_IQD:'Iraqi dinar', w_cur_USD:'US dollar', w_cur_IRT:'Iranian toman',
@@ -100,9 +122,9 @@ w_exTitle:'Currency exchange', w_from:'From', w_to:'To', w_swap:'Swap currencies
 w_expires:'Quote expires in', w_secs:'seconds', w_expired:'Quote expired. Please refresh it.', w_refresh:'Refresh quote',
 w_confirmOff:'Confirm conversion (disabled in Stage 1)', w_confirmNote:'Preview only. No balance changes.',
 w_err_invalid:'Enter a valid amount (digits only; USD allows up to 2 decimals).', w_err_same:'Choose two different currencies.',
-w_err_noRate:'No valid exchange rate exists for this conversion, so it is disabled.', w_err_min:'Amount is below the minimum:', w_err_max:'Amount is above the maximum:',
+w_err_noRate:'No valid exchange rate is available right now (missing or expired), so this action is disabled.', w_err_min:'Amount is below the minimum:', w_err_max:'Amount is above the maximum:',
 w_err_insufficient:'Insufficient available balance.', w_err_notAllowed:'This choice is not available for the funding currency.', w_err_method:'Choose an available payment method.',
-w_ratesTitle:'Current exchange rates', w_ratesNote:'Demo rates for preview only. In the next stage an administrator sets the daily rates on the server.',
+w_ratesTitle:'Current exchange rates', w_ratesNote:'Rates are set by the administrator and change daily. Each rate has an expiry; after it expires, conversions stop until a new rate is published.',
 w_modeDirect:'Entered directly', w_modeVia:'Calculated through USD', w_tomanNote:'All IRT amounts are in toman, not rial. 1 toman = 10 rials.',
 w_calcTitle:'Exchange rate calculator', w_calcHint:'Type an amount to see the expected result before funding.', w_limits:'Limits per conversion', w_commission:'Commission',
 w_histTitle:'Transaction history', w_histNote:'The transactions shown are demo examples. New requests stay in memory only until you close the page.',
@@ -110,8 +132,25 @@ w_fDateFrom:'From date', w_fDateTo:'To date', w_fCurrency:'Currency', w_fType:'T
 w_txId:'Transaction ID', w_custId:'Customer ID', w_orig:'Original amount', w_dest:'Destination currency', w_final:'Final amount', w_method:'Payment method', w_when:'Date',
 w_ty_funding:'Funding', w_ty_exchange:'Exchange', w_ty_refund:'Refund', w_ty_adjustment:'Admin adjustment',
 w_stt_pending:'Pending', w_stt_under_review:'Under review', w_stt_approved:'Approved', w_stt_completed:'Completed', w_stt_rejected:'Rejected', w_stt_failed:'Failed', w_stt_cancelled:'Cancelled', w_stt_refunded:'Refunded',
-w_supportTitle:'Customer support', w_supportNote:'For funding help or questions, message us on WhatsApp.', w_chat:'Chat with support on WhatsApp', w_ticket:'Open support form'
+w_supportTitle:'Customer support', w_supportNote:'For funding help or questions, message us on WhatsApp.', w_chat:'Chat with support on WhatsApp', w_ticket:'Open support form',
+w_rt_loading:'Loading exchange rates...',
+w_rt_unavailable:'No exchange rates have been published yet. Conversion and estimates are disabled.',
+w_rt_expired:'Exchange rates have expired. Conversion and estimates are disabled until the administrator publishes new rates.',
+w_rt_error:'Could not load exchange rates. Conversion and estimates are disabled.',
+w_rt_invalid:'The exchange rates received are not valid, so conversion is disabled.',
+w_retry:'Try again',
+w_updated:'Last updated',
+w_validUntil:'Valid until',
+w_ffee:'Funding commission',
+w_xfee:'Exchange commission',
+w_pairs:'Conversion rates between currencies'
 }
 };
-const TT = window.T; for (const l of Object.keys(add)) Object.assign(TT[l], add[l]);
+
+// Stage 2: the wallet is no longer a "toman wallet". Explicit names + a sweep that renames the old label anywhere else in the texts.
+const TT = window.T;
+const NAME = { ar: 'المحفظة الإلكترونية', fa: 'کیف پول دیجیتال', en: 'Digital Wallet' };
+const OLD = { ar: /محفظة\s+(?:ال)?تومان(?:ية|ي)?/g, fa: /کیف\s*پول\s+تومان(?:ی)?/g, en: /Toman\s+Wallet/gi };
+const sweep = (o, l) => { for (const k of Object.keys(o)) { const v = o[k]; if (typeof v === 'string') o[k] = v.replace(OLD[l], NAME[l]); else if (v && typeof v === 'object') sweep(v, l); } };
+for (const l of Object.keys(add)) { Object.assign(TT[l], add[l]); sweep(TT[l], l); TT[l].nav_wallet = NAME[l]; if (TT[l].svc) TT[l].svc.wallet = NAME[l]; }
 })();
