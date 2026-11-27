@@ -20,6 +20,8 @@
     demoBanner: { ar: 'بيانات تجريبية وهمية — ليست رحلات أو أسعارًا حقيقية', fa: 'داده‌های نمایشی ساختگی — پرواز یا قیمت واقعی نیست', en: 'DEMO fictional data — not real flights or prices' },
     liveBadge: { ar: 'حيّ', fa: 'زنده', en: 'LIVE' },
     noPrice: { ar: 'السعر غير متاح', fa: 'قیمت موجود نیست', en: 'Price not available' },
+    routeWarn: { ar: n => 'تم إخفاء ' + n + ' نتيجة لأن مسارها أو تاريخها لا يطابق بحثك أو لا يمكن التحقق منه.', fa: n => n + ' نتیجه پنهان شد چون مسیر یا تاریخ آن با جستجوی شما نمی‌خواند یا قابل تأیید نیست.', en: n => n + ' result(s) hidden because their route or date does not match your search or could not be verified.' },
+    unverifiedBadge: { ar: 'المسار غير مؤكَّد', fa: 'مسیر تأییدنشده', en: 'Route not verified' },
     returnFlights: { ar: 'رحلات العودة', fa: 'پروازهای برگشت', en: 'Return flights' }
   };
   const L = k => { const v = TXT[k][S.lang] || TXT[k].en; return v; };
@@ -646,13 +648,19 @@
         body.append(el('p', service === 'flight' ? L('searching') : t('loading'), 'muted', { role: 'status' }));
         (async () => {
           if (steps[st.i] !== 'results') return;
-          let all, fictional = true, inbound = [];
+          let all, fictional = true, inbound = [], routeHidden = 0;
           try {
             if (service === 'flight') {
               const answer = await LiveFlights.search(st.form);
               fictional = answer.fictional === true;
               all = fictional ? (answer.results || []).map(r => ({id:r.id, fictional:true, title:r.airline, price:r.price.amountToman, rows:{depAirport:r.from, arrAirport:r.to, dep:r.departure, arr:r.arrival||'-', duration:'-', stops:r.stops, baggage:r.baggage, fare:r.cabin, cancel:'-'}})) : (answer.results || []).map(LiveFlights.displayed);
               inbound = (answer.returnResults || []).map(LiveFlights.displayed);
+              // Safety net: never show a live flight whose verified route/date conflicts with the search (the server already filters; this guards against any other source).
+              const okLeg = (r, a, b, d) => { const x = r.details || {}; if (x.routeVerified === false) return true; const dd = /^\d{4}-\d{2}-\d{2}/.test(x.departureDate || '') ? String(x.departureDate).slice(0, 10) === d : true; return x.from === a && x.to === b && dd; };
+              const n0 = all.length + inbound.length;
+              all = all.filter(r => okLeg(r, st.form.from, st.form.to, st.form.date)); inbound = inbound.filter(r => okLeg(r, st.form.to, st.form.from, st.form.ret));
+              const ex = (answer.meta && answer.meta.excluded) || {};
+              routeHidden = n0 - all.length - inbound.length + ['routeMismatch', 'dateMismatch', 'unverifiedRoute', 'unverifiedDate'].reduce((n, k) => n + (Number(ex[k]) || 0), 0);
             } else all = P.search(service, st.form);
           } catch (err) {
             if (steps[st.i] === 'results') body.replaceChildren(el('p', L('searchFailed') + (err && err.message || err), 'note warn', { role: 'alert' }), nav(null));
@@ -662,6 +670,7 @@
           body.replaceChildren();
           if (fictional) body.append(el('p', (service === 'flight' ? L('demoBanner') + ' — ' : '') + t('fictional'), 'note warn src-demo'));
           else body.append(el('p', L('liveBanner'), 'note src-live'));
+          if (service === 'flight' && routeHidden > 0) body.append(el('p', L('routeWarn')(routeHidden), 'note warn', { role: 'status' }));
           if (service === 'flight') body.append(el('p', t('paxNote'), 'muted'));
           const view = { sort: 'price', nonstop: false }, bar = el('div', undefined, 'fields'), list = el('div');
           const sw = el('div', undefined, 'field'), sl = el('label', t('sortBy')), ss = el('select'); sl.htmlFor = 'f_sort'; ss.id = 'f_sort';
@@ -671,7 +680,7 @@
           if (service === 'flight') { const w = el('div', undefined, 'field'), l = el('label', t('onlyNonstop')); nsc = el('input'); nsc.type = 'checkbox'; nsc.id = 'f_ns'; l.htmlFor = 'f_ns'; w.append(l, nsc); bar.append(w); }
           const card = r => {
             const c = el('article', undefined, 'result'), h = el('div', undefined, 'rh');
-            h.append(el('strong', r.title || t('svc')[service])); if (r.fictional) h.append(el('span', t('sample'), 'badge')); else if (service === 'flight') h.append(el('span', L('liveBadge'), 'live-badge'));
+            h.append(el('strong', r.title || t('svc')[service])); if (r.fictional) h.append(el('span', t('sample'), 'badge')); else if (service === 'flight') { h.append(el('span', L('liveBadge'), 'live-badge')); if (r.details && r.details.routeVerified === false) h.append(el('span', L('unverifiedBadge'), 'badge')); }
             c.append(h);
             const rows = el('dl', undefined, 'rows');
             Object.entries(r.rows).forEach(([k, v]) => rows.append(el('dt', t('r_' + k)), el('dd', String(fmtRow(k, v)))));
