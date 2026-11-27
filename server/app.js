@@ -7,10 +7,11 @@ const { createLogger } = require('./redact');
 const mock = require('./providers/mock');
 const { Charter724Adapter } = require('./charter724/adapter');
 const { createCors } = require('./cors');
+const { createWalletHandler } = require('./wallet/handler'); // wallet exchange rates (public read + protected admin); no balances, payments or conversions
 const { createRechargeHandler } = require('./recharge/handler'); // read-only recharge catalog (no recharge, payment or wallet)
-const BUILD = '2026-11-26-cors-1'; // shown by /api/health so you can confirm which version Render is running
+const BUILD = '2026-11-27-wallet-2'; // shown by /api/health so you can confirm which version Render is running
 const ROOT = path.resolve(__dirname, '..');
-const STATIC_OK = /^\/(index\.html|styles\.css|js\/[A-Za-z0-9_.-]+\.js)$/; // allowlist: nothing else is ever served
+const STATIC_OK = /^\/(index\.html|styles\.css|wallet\.css|js\/[A-Za-z0-9_.-]+\.js)$/; // allowlist: nothing else is ever served
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
 const SEC = { 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer' };
 
@@ -20,6 +21,8 @@ function createApp(cfg, deps = {}) {
   const problems = liveProblems(cfg, c724.isConfigured()), liveReady = cfg.mode === 'live' && problems.length === 0;
   const cors = createCors({ origins: deps.corsOrigins });
   const recharge = deps.rechargeHandler || createRechargeHandler();
+  const wallet = deps.walletHandler || createWalletHandler({ logger });
+  const isAdminPath = u => /^\/(admin(\/|$|\?)|api\/admin\/)/.test(u); // admin is same-origin only: it never gets CORS headers
   // Behind Render's proxy every visitor shares the proxy's IP, so the rate limit would be shared by ALL visitors. On Render (or TRUST_PROXY=true) use the visitor IP from X-Forwarded-For.
   const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : (process.env.TRUST_PROXY === 'true' || process.env.RENDER === 'true');
   const clientIp = req => { if (trustProxy) { const x = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); if (/^[0-9a-fA-F:.]{3,45}$/.test(x)) return x; } return req.socket.remoteAddress || 'unknown'; };
@@ -40,6 +43,7 @@ function createApp(cfg, deps = {}) {
   }
   async function route(req, res) {
     const u = new URL(req.url, 'http://x'), p = u.pathname, m = req.method;
+    if (m === 'GET' && wallet.serveUi(p, res)) return; // /admin page (fixed 3-file allowlist)
     if (p.startsWith('/api/')) {
       if (limited(clientIp(req))) { res.setHeader('Retry-After', '60'); throw new AppError(429, 'RATE_LIMITED', 'Too many requests. Try again in a minute.'); }
       if (p === '/api/health' && m === 'GET') return json(res, 200, { ok: true, build: BUILD, cors: true, mode: cfg.mode, liveFlights: liveReady, providerConfigured: c724.isConfigured() });
@@ -63,6 +67,10 @@ function createApp(cfg, deps = {}) {
         for (const k in SEC) res.setHeader(k, SEC[k]);
         if (await recharge(req, res)) return;
       }
+      if (p.startsWith('/api/wallet/') || p.startsWith('/api/admin/')) { // public rates + protected admin API (see server/wallet/handler.js)
+        for (const k in SEC) res.setHeader(k, SEC[k]);
+        if (await wallet.handle(req, res, { json, readJson, ip: clientIp(req) })) return;
+      }
       throw new AppError(404, 'NOT_FOUND', 'Unknown API route.');
     }
     if (cfg.serveStatic && m === 'GET') {
@@ -71,7 +79,7 @@ function createApp(cfg, deps = {}) {
     }
     throw new AppError(404, 'NOT_FOUND', 'Not found.');
   }
-  const handler = (req, res) => { if (cors.apply(req, res)) return; route(req, res).catch(e => {
+  const handler = (req, res) => { if (!isAdminPath(req.url) && cors.apply(req, res)) return; route(req, res).catch(e => {
     const err = e instanceof AppError ? e : new AppError(500, 'INTERNAL_ERROR', 'Unexpected server error.');
     if (!(e instanceof AppError)) logger.error('unhandled error', { name: e && e.name, message: e && e.message });
     if (!res.headersSent) json(res, err.status, toBody(err));
