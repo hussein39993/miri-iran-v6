@@ -71,6 +71,28 @@
     const FEES = null; // verified fees/taxes, e.g. { IQ: { fee: 0 }, ... } — null = unknown.
 
     const RT = {
+      catLoading: { ar: 'جارٍ جلب المبالغ والأسعار من المورّد... (قد يستغرق حتى دقيقة)', fa: 'در حال دریافت مبالغ و قیمت‌ها از تأمین‌کننده... (ممکن است تا یک دقیقه طول بکشد)', en: 'Loading amounts and prices from the supplier... (may take up to a minute)' },
+      catReady: { ar: t => 'مبالغ مؤكَّدة من المورّد (' + t + ')', fa: t => 'مبالغ تأییدشده توسط تأمین‌کننده (' + t + ')', en: t => 'Supplier-confirmed amounts (' + t + ')' },
+      catUnavail: { ar: 'هذا المشغّل غير متاح للشحن حاليًا حسب المورّد', fa: 'طبق اعلام تأمین‌کننده، این اپراتور در حال حاضر برای شارژ در دسترس نیست', en: 'The supplier reports this operator is not available for recharge right now' },
+      catNotIntegrated: { ar: 'ربط المورّد غير مفعّل بعد — المبالغ أدناه خيارات واجهة فقط', fa: 'اتصال به تأمین‌کننده هنوز فعال نشده — مبالغ زیر فقط گزینه‌های رابط کاربری است', en: 'Supplier integration is not active yet — amounts below are interface options only' },
+      catUnsupported: { ar: 'هذا المشغّل غير مدعوم في الربط مع المورّد بعد', fa: 'این اپراتور هنوز در اتصال به تأمین‌کننده پشتیبانی نمی‌شود', en: 'This operator is not supported by the supplier integration yet' },
+      catNotConfigured: { ar: 'عنوان الخادم الخلفي لم يُضبط — لا تتوفر بيانات المورّد، والمبالغ خيارات واجهة فقط', fa: 'آدرس بک‌اند تنظیم نشده — داده‌ای از تأمین‌کننده نیست و مبالغ فقط گزینه‌های رابط کاربری است', en: 'Backend address not configured — no supplier data; amounts are interface options only' },
+      catErr_timeout: { ar: 'انتهت مهلة الاتصال بالخادم. أعد المحاولة.', fa: 'مهلت اتصال به سرور تمام شد. دوباره تلاش کنید.', en: 'The server did not answer in time. Please retry.' },
+      catErr_network: { ar: 'تعذّر الاتصال بالخادم. تحقق من الإنترنت وأعد المحاولة.', fa: 'اتصال به سرور برقرار نشد. اینترنت را بررسی و دوباره تلاش کنید.', en: 'Could not reach the server. Check your connection and retry.' },
+      catErr_supplierDown: { ar: 'خدمة المورّد غير متاحة مؤقتًا. أعد المحاولة لاحقًا.', fa: 'سرویس تأمین‌کننده موقتاً در دسترس نیست. بعداً تلاش کنید.', en: 'The supplier service is temporarily unavailable. Try again later.' },
+      catErr_http: { ar: 'حدث خطأ في الخادم أثناء جلب المبالغ. أعد المحاولة.', fa: 'هنگام دریافت مبالغ خطای سرور رخ داد. دوباره تلاش کنید.', en: 'The server returned an error while loading amounts. Please retry.' },
+      catErr_badResponse: { ar: 'ردّ الخادم غير صالح وتم تجاهله.', fa: 'پاسخ سرور نامعتبر بود و نادیده گرفته شد.', en: 'The server answer was invalid and was ignored.' },
+      catErr_currency: { ar: 'عملة الرد لا تطابق بلد الرقم — تم تجاهل البيانات حفاظًا على الأمان.', fa: 'واحد پول پاسخ با کشور شماره مطابقت ندارد — داده برای ایمنی نادیده گرفته شد.', en: 'The answer’s currency does not match the number’s country — data ignored for safety.' },
+      catErr_demo: { ar: 'الرد يحتوي بيانات تجريبية — لم تُستخدم.', fa: 'پاسخ شامل داده‌های نمایشی بود — استفاده نشد.', en: 'The answer contained demo data — not used.' },
+      pkgTitle: { ar: 'باقات الإنترنت (من المورّد)', fa: 'بسته‌های اینترنت (از تأمین‌کننده)', en: 'Internet packages (from the supplier)' },
+      pkgNone: { ar: 'لا توجد باقات إنترنت مُدرجة من المورّد لهذا المشغّل.', fa: 'تأمین‌کننده بسته اینترنتی‌ای برای این اپراتور اعلام نکرده است.', en: 'The supplier lists no internet packages for this operator.' },
+      pkgNote: { ar: 'للعرض فقط — شراء الباقات غير مفعّل في هذه المرحلة.', fa: 'فقط نمایش — خرید بسته در این مرحله فعال نیست.', en: 'Display only — buying packages is not enabled at this stage.' },
+      amtNoteVerified: { ar: 'هذه المبالغ مؤكَّدة من المورّد لهذا المشغّل. المعاينة فقط — لا شحن فعلي.', fa: 'این مبالغ توسط تأمین‌کننده برای این اپراتور تأیید شده است. فقط پیش‌نمایش — شارژ واقعی انجام نمی‌شود.', en: 'These amounts are confirmed by the supplier for this operator. Preview only — no real recharge.' },
+      pay: { ar: 'السعر', fa: 'قیمت', en: 'Price' },
+      supplierPrice: { ar: 'سعر المورّد', fa: 'قیمت تأمین‌کننده', en: 'Supplier price' },
+      source: { ar: 'مصدر البيانات', fa: 'منبع داده', en: 'Data source' },
+      srcSupplier: { ar: 'المورّد (مؤكَّد)', fa: 'تأمین‌کننده (تأییدشده)', en: 'Supplier (confirmed)' },
+      srcNone: { ar: 'غير متصل بمورّد — خيارات واجهة', fa: 'متصل به تأمین‌کننده نیست — گزینه‌های رابط', en: 'Not connected to a supplier — interface options' },
       phone: { ar: 'رقم الهاتف المحمول', fa: 'شماره موبایل', en: 'Mobile number' },
       phoneHint: { ar: 'محلي أو دولي: 07xx… / +964 7xx… / 09xx… / +98 9xx…', fa: 'محلی یا بین‌المللی: 09xx… / +98 9xx… / 07xx… / +964 7xx…', en: 'Local or international: 07xx… / +964 7xx… / 09xx… / +98 9xx…' },
       country: { ar: 'الدولة', fa: 'کشور', en: 'Country' },
@@ -180,8 +202,76 @@
       if (v > max) return { ok: false, msg: tx('amtAbove', fmtN(max), cur) };
       return { ok: true, value: v, verified: false };
     }
-    return { OPS, COUNTRIES, PREFIXES, VERIFIED, FEES, tx, nm, analyze, fmtPhone, validateAmount, presetOk, verifiedFor,
+    // Supplier-confirmed denominations for one operator (set by the catalog loader; null clears it).
+    const setVerified = (op, e) => { if (!op) return; if (e) VERIFIED[op] = e; else delete VERIFIED[op]; };
+    return { OPS, COUNTRIES, PREFIXES, VERIFIED, FEES, setVerified, tx, nm, analyze, fmtPhone, validateAmount, presetOk, verifiedFor,
       is: (svc, spec) => { const a = Array.from(spec || ''); return (a.includes('h') && a.includes('k')) || /^(recharge|topup|top-up|sim)/i.test(String(svc)); } };
+  })();
+  // ======================================================================================================
+  // Recharge supplier CATALOG client (read-only). Talks ONLY to your own backend (backend/recharge/router.js), never to a supplier,
+  // and never holds credentials. Set the backend URL below (or window.MIRI_RECHARGE_API_BASE). Empty = "not configured".
+  // ======================================================================================================
+  const RECHARGE_API_BASE = 'https://miri-iran-v6.onrender.com/api/recharge'; // your Render backend (read-only catalog)
+  const RechargeApi = (function () {
+    const SUPPORTED = { mci: 'IR', irancell: 'IR', rightel: 'IR', asiacell: 'IQ', zain: 'IQ', korek: 'IQ' }, CUR = { IR: 'IRT', IQ: 'IQD' };
+    const TTL = 5 * 60 * 1000, TIMEOUT = 30000, cache = new Map();
+    const base = () => { const b = (typeof window.MIRI_RECHARGE_API_BASE === 'string' && window.MIRI_RECHARGE_API_BASE) || RECHARGE_API_BASE; return b ? b.replace(/\/+$/, '') : ''; };
+    const isInt = v => Number.isSafeInteger(v) && v > 0, isPrice = v => typeof v === 'number' && Number.isFinite(v) && v >= 0;
+    const fail = c => { const e = new Error(c); e.code = c; return e; };
+    // Validates the backend answer strictly; anything unexpected is rejected (never repaired or guessed).
+    function normalize(raw, country) {
+      if (!raw || typeof raw !== 'object') throw fail('badResponse');
+      if (raw.fictional === true || raw.source !== 'supplier') throw fail('demo');
+      const cur = CUR[country];
+      if (raw.currency !== cur) throw fail('currency');
+      if (typeof raw.operatorAvailable !== 'boolean') throw fail('badResponse');
+      const out = { operatorAvailable: raw.operatorAvailable, currency: cur, denominations: [], custom: null, packages: [], fees: null, fetchedAt: Date.now() };
+      if (!raw.operatorAvailable) return out;
+      if (!Array.isArray(raw.denominations)) throw fail('badResponse');
+      const seen = new Set();
+      for (const d of raw.denominations) {
+        if (!d || !isInt(d.amount) || (d.price != null && !isPrice(d.price)) || (d.currency != null && d.currency !== cur)) throw fail('badResponse');
+        if (!seen.has(d.amount)) { seen.add(d.amount); out.denominations.push({ amount: d.amount, price: d.price == null ? null : d.price }); }
+      }
+      out.denominations.sort((a, b) => a.amount - b.amount);
+      if (raw.custom != null) {
+        const u = raw.custom;
+        if (!isInt(u.min) || !isInt(u.max) || u.min > u.max || (u.step != null && !isInt(u.step))) throw fail('badResponse');
+        out.custom = { min: u.min, max: u.max, step: u.step || null };
+      }
+      if (raw.packages != null) {
+        if (!Array.isArray(raw.packages)) throw fail('badResponse');
+        for (const p of raw.packages) {
+          if (!p || typeof p.id !== 'string' || typeof p.title !== 'string' || !p.title || p.title.length > 100 || (p.price != null && !isPrice(p.price)) || (p.currency != null && p.currency !== cur) || (p.validity != null && (typeof p.validity !== 'string' || p.validity.length > 40))) throw fail('badResponse');
+          out.packages.push({ id: p.id, title: p.title, price: p.price == null ? null : p.price, validity: p.validity || null });
+        }
+      }
+      if (raw.fees != null) { if (!isPrice(raw.fees.amount)) throw fail('badResponse'); out.fees = { amount: raw.fees.amount }; }
+      return out;
+    }
+    // Immediate (no network) states. null = a request is needed.
+    const precheck = (country, op) => SUPPORTED[op] !== country ? { status: 'unsupported' } : !base() ? { status: 'notConfigured' } : null;
+    async function catalog(country, op, force) {
+      const pre = precheck(country, op); if (pre) return pre;
+      const key = country + '|' + op, hit = cache.get(key);
+      if (!force && hit && Date.now() - hit.t < TTL) return hit.r;
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null, timer = setTimeout(() => ctl && ctl.abort(), TIMEOUT);
+      let res;
+      try {
+        res = await fetch(base() + '/catalog?country=' + encodeURIComponent(country) + '&operator=' + encodeURIComponent(op), { method: 'GET', headers: { Accept: 'application/json' }, credentials: 'omit', signal: ctl ? ctl.signal : undefined });
+      } catch (e) { clearTimeout(timer); return { status: 'error', code: e && e.name === 'AbortError' ? 'timeout' : 'network' }; }
+      clearTimeout(timer);
+      if (res.status === 501) return { status: 'notIntegrated' };
+      if (res.status === 503) return { status: 'error', code: 'supplierDown' };
+      if (!res.ok) return { status: 'error', code: 'http' };
+      let r;
+      try {
+        const d = normalize(await res.json(), country);
+        r = !d.operatorAvailable || (!d.denominations.length && !d.custom) ? { status: 'unavailable' } : { status: 'ready', data: d };
+      } catch (e) { return { status: 'error', code: e && e.code ? e.code : 'badResponse' }; }
+      cache.set(key, { t: Date.now(), r }); return r;
+    }
+    return { SUPPORTED, precheck, catalog, normalize };
   })();
   (function injectRcCss() {
     if (document.getElementById('miri-recharge-css')) return;
@@ -196,7 +286,8 @@
       + '.rc .rc-amt:disabled{opacity:.45;cursor:not-allowed;text-decoration:line-through}'
       + '.rc .rc-msg{margin:.25rem 0;font-size:.9em}.rc .rc-warn{color:#b45f00}.rc [aria-invalid=true]{border-color:#c0261f}'
       + '.rc .rc-prev{margin-top:.75rem;padding:.6rem .75rem;border:1px dashed rgba(128,128,128,.5);border-radius:12px}'
-      + '.rc .rc-prev h3{margin:.1rem 0 .4rem;font-size:1rem}';
+      + '.rc .rc-prev h3{margin:.1rem 0 .4rem;font-size:1rem}.rc .rc-cat{margin:.5rem 0;padding:.5rem .75rem;border-inline-start:4px solid #5b6572;border-radius:8px;background:rgba(128,128,128,.08)}'
+      + '.rc .rc-cat-ready{border-color:#0a7d3b}.rc .rc-cat-error,.rc .rc-cat-unavailable{border-color:#c0261f}.rc .rc-cat-loading{border-color:#c77700}.rc .rc-pkg{cursor:default}.rc .rc-pkgs{margin:.6rem 0}';
     document.head.append(c);
   })();
 
@@ -373,7 +464,7 @@
     }
     // ---- Mobile Recharge step UI (preview only; no financial action is ever started from here) ----
     function rechargeStep(body, s) {
-      const rc = st.rc || (st.rc = { raw: '', manualOp: null, sel: null, customRaw: '', lastCountry: '', lastDet: null, showErr: false });
+      const rc = st.rc || (st.rc = { raw: '', manualOp: null, sel: null, customRaw: '', lastCountry: '', lastDet: null, showErr: false, cat: { status: 'idle' }, catKey: '', catOp: null, mount: 0 });
       const cur = C => RC.nm(C.curShort), errMsg = r => r.msg || RC.tx(r.err), vis = (n, on) => { n.style.display = on ? '' : 'none'; };
       const getState = () => {
         const a = RC.analyze(rc.raw), C = a.country ? RC.COUNTRIES[a.country] : null, op = C ? (rc.manualOp || a.opId || '') : '';
@@ -384,30 +475,51 @@
       };
       const logoNode = op => {
         const o = op && RC.OPS[op];
-        if (o && o.logo) { const i = el('img', undefined, 'rc-logo', { alt: RC.nm(o.n), src: o.logo }); return i; }
+        if (o && o.logo) return el('img', undefined, 'rc-logo', { alt: RC.nm(o.n), src: o.logo });
         const b = el('span', o ? o.mono : '📱', 'rc-logo', { 'aria-hidden': 'true' }); b.style.background = o ? o.color : '#5b6572'; return b;
       };
+      const catData = () => (rc.cat.status === 'ready' ? rc.cat.data : null);
+      // Supplier catalog: fetched when a full number + operator are known; results feed RC.VERIFIED, which the amount validation already uses.
+      function ensureCatalog(g, force, done) {
+        const key = g.op && g.a.status === 'ok' ? g.a.country + '|' + g.op : '';
+        if (!force && key === rc.catKey) return;
+        rc.catKey = key; if (rc.catOp) RC.setVerified(rc.catOp, null); rc.catOp = null; rc.cat = { status: 'idle' };
+        if (!key) return;
+        const op = g.op, country = g.a.country, pre = RechargeApi.precheck(country, op);
+        if (pre) { rc.cat = pre; return; }
+        rc.cat = { status: 'loading' };
+        RechargeApi.catalog(country, op, !!force).then(r => {
+          if (rc.catKey !== key) return; // number/operator changed meanwhile
+          rc.cat = r;
+          if (r.status === 'ready') { RC.setVerified(op, { amounts: r.data.denominations.map(d => d.amount), custom: r.data.custom }); rc.catOp = op; }
+          done();
+        });
+      }
       function previewNode(g) {
-        const { a, C, op, amt } = g, d = el('dl', undefined, 'sum');
+        const { a, C, op, amt } = g, d = el('dl', undefined, 'sum'), cd = catData();
         const row = (k, v, ltr) => d.append(el('dt', k), el('dd', v, '', ltr ? { dir: 'ltr' } : undefined));
+        const den = cd && amt && amt.ok ? cd.denominations.find(x => x.amount === amt.value) : null;
         row(RC.tx('phone'), a.status === 'ok' ? RC.fmtPhone(a) : '-', true);
         row(RC.tx('country'), C ? RC.nm(C.n) : '-');
         row(RC.tx('operator'), op ? RC.nm(RC.OPS[op].n) + ' — ' + (rc.manualOp ? RC.tx('opManual') : RC.tx('detected') + ' (' + RC.tx('likely') + ')') : '-');
         row(RC.tx('amount'), amt && amt.ok ? num(String(amt.value)) + ' ' + cur(C) + (amt.verified ? '' : ' *') : '-');
         row(RC.tx('currency'), C ? RC.nm(C.curName) : '-');
         row(RC.tx('svcType'), RC.tx('svcVal'));
-        row(RC.tx('fees'), RC.FEES ? '-' : RC.tx('feesUnknown'));
-        row(RC.tx('total'), RC.tx('totalUnknown'));
+        row(RC.tx('supplierPrice'), den && den.price != null ? num(String(den.price)) + ' ' + cur(C) : RC.tx('feesUnknown'));
+        row(RC.tx('fees'), cd && cd.fees ? num(String(cd.fees.amount)) + ' ' + cur(C) : RC.tx('feesUnknown'));
+        row(RC.tx('total'), den && den.price != null && cd.fees ? num(String(den.price + cd.fees.amount)) + ' ' + cur(C) : RC.tx('totalUnknown'));
+        row(RC.tx('source'), cd ? RC.tx('srcSupplier') : RC.tx('srcNone'));
         return d;
       }
       if (s === 'review') {
         const g = getState();
-        if (g.a.status !== 'ok' || !g.op || !(g.amt && g.amt.ok)) { st.i = 0; draw(); return; }
+        if (g.a.status !== 'ok' || !g.op || !(g.amt && g.amt.ok) || rc.cat.status === 'unavailable') { st.i = 0; draw(); return; }
         body.append(el('h2', t('reviewTitle')), previewNode(g));
         if (!g.amt.verified) body.append(el('p', '* ' + RC.tx('custUnverified'), 'note warn'));
         body.append(el('p', RC.tx('previewOnly'), 'note warn'));
         const n = nav(null), b = el('button', RC.tx('unavailBtn'), 'cta'); b.type = 'button'; b.disabled = true; n.append(b); body.append(n); return;
       }
+      const mid = rc.mount = (rc.mount || 0) + 1;
       const root = el('div', undefined, 'rc');
       const fp = el('div', undefined, 'field'), lp = el('label', RC.tx('phone')), ip = el('input');
       ip.id = 'rc_phone'; ip.type = 'tel'; ip.inputMode = 'tel'; ip.autocomplete = 'tel'; ip.dir = 'ltr'; ip.placeholder = '07xx xxx xxxx | 09xx xxx xxxx'; ip.value = rc.raw; lp.htmlFor = ip.id; ip.setAttribute('aria-describedby', 'rc_phone_err');
@@ -417,49 +529,78 @@
       dv.append(dCountry, dCur); det.append(logoHost, dv);
       const opWrap = el('div', undefined, 'field'), ol = el('label', RC.tx('operator')), osel = el('select'), onote = el('p', '', 'apt-hint', { 'aria-live': 'polite' }), eop = el('p', '', 'err', { 'aria-live': 'polite' });
       osel.id = 'rc_op'; ol.htmlFor = osel.id; opWrap.append(ol, osel, onote, eop);
+      const catBox = el('div', undefined, 'rc-cat', { 'aria-live': 'polite' });
       const amtHead = el('strong', RC.tx('amount')), grid = el('div', undefined, 'rc-grid', { role: 'radiogroup', 'aria-label': RC.tx('amount') }), amtNote = el('p', RC.tx('amtNote'), 'apt-hint');
       const cw = el('div', undefined, 'field'), cl = el('label', RC.tx('otherLabel')), ci = el('input'), cmsg = el('p', '', 'rc-msg rc-warn', { 'aria-live': 'polite' });
       ci.id = 'rc_custom'; ci.type = 'text'; ci.inputMode = 'numeric'; ci.autocomplete = 'off'; ci.dir = 'ltr'; ci.value = rc.customRaw; cl.htmlFor = ci.id; cw.append(cl, ci, cmsg);
-      const eamt = el('p', '', 'err', { 'aria-live': 'polite' }), prev = el('div', undefined, 'rc-prev');
-      root.append(fp, det, opWrap, amtHead, grid, amtNote, cw, eamt, prev); body.append(root);
+      const eamt = el('p', '', 'err', { 'aria-live': 'polite' }), pkgBox = el('div', undefined, 'rc-pkgs'), prev = el('div', undefined, 'rc-prev');
+      root.append(fp, det, opWrap, catBox, amtHead, grid, amtNote, cw, eamt, pkgBox, prev); body.append(root);
       let optsFor = null, gridKey = null, btns = [];
 
+      function renderCat(g) {
+        const c = rc.cat, box = catBox; box.replaceChildren(); box.className = 'rc-cat rc-cat-' + c.status;
+        if (c.status === 'idle') { vis(box, false); return; } vis(box, true);
+        if (c.status === 'loading') { box.append(el('p', RC.tx('catLoading'), 'rc-msg', { role: 'status' })); return; }
+        if (c.status === 'ready') { box.append(el('p', RC.tx('catReady', new Date(c.data.fetchedAt).toLocaleTimeString()), 'rc-msg')); return; }
+        const key = { unavailable: 'catUnavail', notIntegrated: 'catNotIntegrated', unsupported: 'catUnsupported', notConfigured: 'catNotConfigured' }[c.status] || ('catErr_' + c.code);
+        box.append(el('p', RC.tx(key) || RC.tx('catErr_http'), 'rc-msg rc-warn', { role: c.status === 'error' ? 'alert' : 'status' }));
+        if (c.status === 'error' || c.status === 'unavailable') { const b = el('button', L('retry'), 'cta small'); b.type = 'button'; b.onclick = () => { ensureCatalog(getState(), true, update); update(); }; box.append(b); }
+      }
+      function renderPkgs(g) {
+        pkgBox.replaceChildren(); const cd = catData(); if (!cd || !g.C) { vis(pkgBox, false); return; } vis(pkgBox, true);
+        pkgBox.append(el('strong', RC.tx('pkgTitle')));
+        if (!cd.packages.length) { pkgBox.append(el('p', RC.tx('pkgNone'), 'apt-hint')); return; }
+        const list = el('div', undefined, 'rc-grid');
+        cd.packages.forEach(p => { const c = el('div', undefined, 'rc-amt rc-pkg'); c.append(document.createTextNode(p.title)); if (p.validity) c.append(el('small', p.validity)); c.append(el('small', p.price != null ? num(String(p.price)) + ' ' + cur(g.C) : RC.tx('feesUnknown'))); list.append(c); });
+        pkgBox.append(list, el('p', RC.tx('pkgNote'), 'apt-hint'));
+      }
       function update() {
+        if (rc.mount !== mid) return;
         let g = getState();
         const ck = g.a.country || '';
         if (ck !== rc.lastCountry) { rc.sel = null; rc.customRaw = ''; rc.manualOp = null; rc.lastCountry = ck; ci.value = ''; g = getState(); } // new country: old amount/currency/operator choice is dropped
         if ((g.a.opId || null) !== rc.lastDet) { rc.lastDet = g.a.opId || null; if (rc.manualOp) { rc.manualOp = null; g = getState(); } }
-        const { a, C, op } = g, defin = ['phoneChars', 'phoneUnknown', 'phoneLong'].includes(a.err);
+        ensureCatalog(g, false, update); g = getState();
+        const { a, C, op } = g, defin = ['phoneChars', 'phoneUnknown', 'phoneLong'].includes(a.err), unavail = rc.cat.status === 'unavailable';
         const pe = a.status !== 'ok' && (defin || rc.showErr) ? RC.tx(a.err) : '';
         ep.textContent = pe; if (pe) ip.setAttribute('aria-invalid', 'true'); else ip.removeAttribute('aria-invalid');
         [det, opWrap, amtHead, grid, amtNote, prev].forEach(n => vis(n, !!C));
-        if (!C) { vis(cw, false); eamt.textContent = ''; return; }
+        if (!C) { vis(cw, false); vis(catBox, false); vis(pkgBox, false); eamt.textContent = ''; return; }
         dCountry.textContent = RC.tx('country') + ': ' + RC.nm(C.n); dCur.textContent = RC.tx('currency') + ': ' + RC.nm(C.curName);
         logoHost.replaceChildren(logoNode(op));
         if (optsFor !== ck) { optsFor = ck; osel.replaceChildren(); [['', RC.tx('opChoose')], ...C.ops.map(id => [id, RC.nm(RC.OPS[id].n)])].forEach(([v, l]) => { const o = el('option', l); o.value = v; osel.append(o); }); }
         osel.value = op;
-        const pre = Math.max(0, (a.national || '').length) >= (a.country === 'IR' ? 4 : 3);
+        const pre = (a.national || '').length >= (a.country === 'IR' ? 4 : 3);
         onote.textContent = rc.manualOp ? RC.tx('opManual') : a.opId ? RC.tx('opAuto') : pre ? RC.tx('opUnknown') : RC.tx('opPending');
         const oe = rc.showErr && !op ? RC.tx('opRequired') : ''; eop.textContent = oe; if (oe) osel.setAttribute('aria-invalid', 'true'); else osel.removeAttribute('aria-invalid');
-        if (gridKey !== ck + '|' + op) {
-          gridKey = ck + '|' + op; grid.replaceChildren(); btns = [];
+        renderCat(g);
+        const cd = catData();
+        amtNote.textContent = cd ? RC.tx('amtNoteVerified') : RC.tx('amtNote');
+        const gk = ck + '|' + op + '|' + rc.cat.status + '|' + (cd ? cd.denominations.length : 0);
+        if (gridKey !== gk) {
+          gridKey = gk; grid.replaceChildren(); btns = [];
           const mk = (v, label, sub, off) => {
             const b = el('button', undefined, 'rc-amt', { role: 'radio' }); b.type = 'button'; b.dataset.v = v; b.disabled = !!off;
             b.append(document.createTextNode(label)); if (sub) b.append(el('small', sub));
             b.onclick = () => { rc.sel = v; update(); if (v === 'custom') ci.focus(); }; grid.append(b); btns.push(b);
           };
-          C.presets.forEach(v => mk(String(v), num(String(v)), RC.presetOk(op, v) ? cur(C) : RC.tx('notAvail'), !RC.presetOk(op, v)));
-          mk('custom', RC.tx('other'), '', false);
+          if (cd) cd.denominations.forEach(x => mk(String(x.amount), num(String(x.amount)), x.price != null ? RC.tx('pay') + ' ' + num(String(x.price)) + ' ' + cur(C) : cur(C), false));
+          else C.presets.forEach(v => mk(String(v), num(String(v)), unavail ? RC.tx('notAvail') : cur(C), unavail));
+          if (!cd || cd.custom) mk('custom', RC.tx('other'), '', unavail);
         }
         btns.forEach(b => b.setAttribute('aria-checked', String(rc.sel === b.dataset.v)));
-        vis(cw, rc.sel === 'custom');
+        if (rc.sel && !btns.some(b => b.dataset.v === rc.sel)) rc.sel = null; // e.g. supplier list does not contain the earlier choice
+        vis(cw, rc.sel === 'custom'); ci.disabled = unavail;
         if (rc.sel === 'custom') ci.placeholder = RC.nm(C.curShort);
+        g = getState();
         let em = '';
-        if (!rc.sel) em = rc.showErr ? RC.tx('amtChoose') : '';
+        if (unavail) em = RC.tx('catUnavail');
+        else if (!rc.sel) em = rc.showErr ? RC.tx('amtChoose') : '';
         else if (rc.sel === 'custom') em = !g.amt.ok && (rc.showErr || rc.customRaw.trim()) ? errMsg(g.amt) : '';
         else if (!g.amt.ok) em = errMsg(g.amt);
         eamt.textContent = em; if (em && rc.sel === 'custom') ci.setAttribute('aria-invalid', 'true'); else ci.removeAttribute('aria-invalid');
         cmsg.textContent = rc.sel === 'custom' && g.amt.ok && !g.amt.verified ? RC.tx('custUnverified') : '';
+        renderPkgs(g);
         prev.replaceChildren(el('h3', RC.tx('preview')), previewNode(g), el('p', (g.amt && g.amt.ok && !g.amt.verified ? '* ' + RC.tx('custUnverified') + ' ' : '') + RC.tx('previewOnly'), 'rc-msg rc-warn'));
       }
       ip.oninput = () => { rc.raw = ip.value; update(); };
@@ -471,6 +612,7 @@
         const g = getState();
         if (g.a.status !== 'ok') { ip.focus(); return; }
         if (!g.op) { osel.focus(); return; }
+        if (rc.cat.status === 'unavailable') return;
         if (!g.amt || !g.amt.ok) { (rc.sel === 'custom' ? ci : btns[0]).focus(); return; }
         st.errs = {}; st.i++; draw();
       }, t('next')));
@@ -565,5 +707,5 @@
       }
     }
   }
-  window.Wizard = { run, defs, check, recharge: RC };
+  window.Wizard = { run, defs, check, recharge: RC, rechargeApi: RechargeApi };
 })();
