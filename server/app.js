@@ -7,6 +7,7 @@ const { createLogger } = require('./redact');
 const mock = require('./providers/mock');
 const { Charter724Adapter } = require('./charter724/adapter');
 const { createCors } = require('./cors');
+const { createRechargeHandler } = require('./recharge/handler'); // read-only recharge catalog (no recharge, payment or wallet)
 const BUILD = '2026-11-26-cors-1'; // shown by /api/health so you can confirm which version Render is running
 const ROOT = path.resolve(__dirname, '..');
 const STATIC_OK = /^\/(index\.html|styles\.css|js\/[A-Za-z0-9_.-]+\.js)$/; // allowlist: nothing else is ever served
@@ -18,6 +19,7 @@ function createApp(cfg, deps = {}) {
   const c724 = deps.charter724 || new Charter724Adapter({ cfg, mapping, fetchImpl: deps.fetchImpl, logger, now: deps.now });
   const problems = liveProblems(cfg, c724.isConfigured()), liveReady = cfg.mode === 'live' && problems.length === 0;
   const cors = createCors({ origins: deps.corsOrigins });
+  const recharge = deps.rechargeHandler || createRechargeHandler();
   // Behind Render's proxy every visitor shares the proxy's IP, so the rate limit would be shared by ALL visitors. On Render (or TRUST_PROXY=true) use the visitor IP from X-Forwarded-For.
   const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : (process.env.TRUST_PROXY === 'true' || process.env.RENDER === 'true');
   const clientIp = req => { if (trustProxy) { const x = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim(); if (/^[0-9a-fA-F:.]{3,45}$/.test(x)) return x; } return req.socket.remoteAddress || 'unknown'; };
@@ -57,6 +59,10 @@ function createApp(cfg, deps = {}) {
         return json(res, 200, { source: 'charter724', fictional: false, airports: await c724.getAirports() });
       }
       if (['/api/bookings', '/api/tickets/issue', '/api/refunds'].includes(p)) { if (m !== 'POST') throw new AppError(405, 'METHOD_NOT_ALLOWED', 'Use POST.'); return txGuard(); }
+      if (p === '/api/recharge' || p.startsWith('/api/recharge/')) { // GET /api/recharge/catalog only; runs after the rate limit, CORS was applied in handler()
+        for (const k in SEC) res.setHeader(k, SEC[k]);
+        if (await recharge(req, res)) return;
+      }
       throw new AppError(404, 'NOT_FOUND', 'Unknown API route.');
     }
     if (cfg.serveStatic && m === 'GET') {
