@@ -24,6 +24,41 @@
     app.replaceChildren(h('section', { class: 'card' }, f));
   }
 
+
+  // ---- Stage 3A: customers (search + account status) and the sandbox mailbox ----
+  const ST = { pending_verification: 'بانتظار التفعيل', active: 'نشط', restricted: 'مقيّد', suspended: 'موقوف', closed: 'مغلق' };
+  function customersCard() {
+    const q = h('input', { id: 'cq', type: 'text', autocomplete: 'off', placeholder: 'بحث: بريد أو اسم أو رقم العميل' }), list = h('div'), msg = h('p', { role: 'status' }), find = h('button', { type: 'button' }, 'بحث');
+    async function load() {
+      const r = await api('customers?limit=25&q=' + encodeURIComponent(q.value.trim()));
+      if (r.status === 401) return loginView('انتهت الجلسة.');
+      if (!r.ok) { list.replaceChildren(h('p', { class: 'err' }, r.status === 503 ? 'حسابات العملاء غير مفعّلة بعد على الخادم (راجع إعدادات Render).' : errText(r.j))); return; }
+      list.replaceChildren(...(r.j.customers.length ? r.j.customers.map(row) : [h('p', { class: 'muted' }, 'لا يوجد عملاء.')]));
+    }
+    function row(c) {
+      const sel = h('select', { 'aria-label': 'الحالة' }); ['active', 'restricted', 'suspended', 'closed'].forEach(s => { const o = h('option', { value: s }, ST[s]); sel.append(o); }); sel.value = c.status === 'pending_verification' ? 'active' : c.status;
+      const why = h('input', { type: 'text', maxlength: '300', placeholder: 'السبب (مطلوب عند التقييد أو الإيقاف)' }), go = h('button', { type: 'button', class: 'ghost' }, 'تطبيق');
+      go.onclick = async () => {
+        if (!confirm('تغيير حالة حساب ' + c.email + ' إلى: ' + ST[sel.value] + '؟')) return; go.disabled = true;
+        const r2 = await api('customers/status', { customerId: c.id, status: sel.value, reason: why.value });
+        go.disabled = false; msg.className = r2.ok ? 'banner good' : 'banner bad'; msg.textContent = r2.ok ? 'تم تغيير الحالة (وسُجّل في سجل التدقيق).' : (r2.j && r2.j.error && r2.j.error.fields ? 'تحقق من الحقول: السبب مطلوب عند التقييد أو الإيقاف.' : errText(r2.j)); if (r2.ok) load();
+      };
+      return h('div', { class: 'card' }, h('div', { class: 'row' }, h('strong', null, c.fullName), h('span', { class: 'ltr' }, c.customerNo)), h('div', { class: 'muted' }, h('span', { class: 'ltr' }, c.email), ' · ' + ST[c.status] + (c.emailVerified ? ' · البريد مفعّل' : ' · البريد غير مفعّل')), h('div', { class: 'grid' }, sel, why, go));
+    }
+    find.onclick = load; q.onkeydown = e => { if (e.key === 'Enter') load(); };
+    load();
+    return h('section', { class: 'card' }, h('h2', null, 'العملاء (تجريبي)'), h('div', { class: 'row' }, q, find), msg, list);
+  }
+  function mailboxCard() {
+    const list = h('div'), reload = h('button', { type: 'button', class: 'ghost' }, 'تحديث');
+    async function load() {
+      const r = await api('sandbox/outbox?limit=10'); if (!r.ok) { list.replaceChildren(h('p', { class: 'muted' }, r.status === 503 ? 'غير مفعّل بعد.' : errText(r.j))); return; }
+      list.replaceChildren(...(r.j.messages.length ? r.j.messages.map(m => { const url = (String(m.body).split('\n').find(l => /^https:\/\//.test(l)) || '').trim(); return h('div', { class: 'card' }, h('strong', null, m.subject), h('div', { class: 'muted' }, h('span', { class: 'ltr' }, m.to_email), ' · ' + fmtDate(m.at)), url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, h('span', { class: 'ltr' }, url)) : null); }) : [h('p', { class: 'muted' }, 'لا توجد رسائل بعد.')]));
+    }
+    reload.onclick = load; load();
+    return h('section', { class: 'card' }, h('div', { class: 'row' }, h('h2', null, 'صندوق البريد التجريبي'), reload), h('p', { class: 'help' }, 'روابط التفعيل واستعادة كلمة المرور تظهر هنا في النسخة التجريبية فقط. لا تُرسل رسائل حقيقية.'), list);
+  }
+
   async function mainView(user) {
     const r = await api('rates'); if (r.status === 401) return loginView('انتهت الجلسة. سجّل الدخول من جديد.'); if (!r.ok) return loginView(errText(r.j));
     const d = r.j, cur = d.current, inputs = {}, errBox = {};
@@ -41,7 +76,7 @@
       const my = ++seq, r2 = await api('preview', read()); if (!r2.ok || my !== seq) return; /* ignore out-of-date answers */ const j = r2.j; showErrors(j.errors.concat(j.warnings || []));
       preview.replaceChildren(h('h2', null, 'أسعار التحويل المحسوبة تلقائياً'));
       if (!j.ok) { preview.append(h('p', { class: 'muted' }, 'صحّح الأخطاء أعلاه لتظهر الأسعار.')); return; }
-      const t = h('table'); j.derived.forEach(x => t.append(h('tr', null, h('th', null, x.from + ' ← ' + x.to), h('td', null, h('span', { class: 'ltr' }, pairLine(x))))));
+      const t = h('table'); j.derived.forEach(x => t.append(h('tr', null, h('th', null, h('span', { class: 'ltr' }, x.from + ' → ' + x.to)), h('td', null, h('span', { class: 'ltr' }, pairLine(x))))));
       preview.append(t, h('p', { class: 'help' }, 'أي تحويل ذهاباً وإياباً يعطي الزبون أقل مما بدأ به (شراء ≤ بيع)، فلا يمكن الربح من التكرار.'));
     }
     async function publish(extra) {
@@ -58,13 +93,14 @@
       hr.j.history.forEach(e => { const a = e.after; t.append(h('tr', null, h('td', null, fmtDate(e.at)), h('td', null, e.by), h('td', null, h('span', { class: 'ltr' }, fmtNum(a.buy.IQD) + ' / ' + fmtNum(a.sell.IQD))), h('td', null, h('span', { class: 'ltr' }, fmtNum(a.buy.IRT) + ' / ' + fmtNum(a.sell.IRT))), h('td', null, h('span', { class: 'ltr' }, a.fees.fundingPct + '% / ' + a.fees.exchangePct + '%')))); });
       hist.replaceChildren(hr.j.history.length ? t : h('p', { class: 'muted' }, 'لا يوجد سجل بعد.')); });
     const out = h('button', { class: 'ghost', type: 'button' }, 'تسجيل الخروج'); out.onclick = async () => { await api('logout', {}); loginView(''); };
-    app.replaceChildren(
+    app.replaceChildren(...[
       h('div', { class: 'row' }, h('h1', null, 'إدارة أسعار الصرف'), h('div', null, h('span', { class: 'muted' }, user + ' '), out)),
       store, status,
       h('section', { class: 'card' }, h('h2', null, 'الأسعار (لكل 100 دولار)'), h('p', { class: 'help' }, 'يجب أن يكون سعر الشراء أقل من أو يساوي سعر البيع.'), h('div', { class: 'grid' }, FIELDS.map(fieldEl))),
       h('section', { class: 'card' }, h('h2', null, 'العمولات والحدود'), h('div', { class: 'grid' }, FIELDS2.map(fieldEl))),
       h('section', { class: 'card' }, preview, h('div', { class: 'row' }, save), saveMsg),
-      h('section', { class: 'card' }, h('h2', null, 'سجل تغييرات الأسعار'), hist));
+      h('section', { class: 'card' }, h('h2', null, 'سجل تغييرات الأسعار'), hist),
+      customersCard(), mailboxCard()].filter(Boolean)); // filter: a null child would be printed as the text "null"
     Object.values(inputs).forEach(i => { i.oninput = () => { clearTimeout(timer); timer = setTimeout(doPreview, 450); }; }); // attached after the fields exist
     doPreview();
   }

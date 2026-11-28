@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.0.0-wallet3a (sandbox)
+- Customer accounts on PostgreSQL (schema "sandbox"): register, e-mail activation, login/logout, password recovery, profile, unique customer ID, account status (active / restricted / suspended).
+- Opaque bearer sessions (only a fingerprint stored), idle + absolute expiry, revocation, rate limiting (Upstash Redis, memory fallback), hash-chained append-only audit log.
+- SQL migrations with a runner (advisory lock, checksum guard). Sandbox mail adapter (no real e-mail); admin page: customers + sandbox mailbox.
+- Frontend: account pages (AR/FA/EN), shared API client (timeouts, retries, de-duplication, "server is waking up" message), scripts deferred, wallet rate request is non-blocking.
+- Fixed: "null" text in the rate-management page; conversion arrows shown from -> to in RTL.
+- No real payments, balances or conversions. Wallet money tables arrive in Stage 3B.
+
 ## 6.0.0-step1 (backend only; real API NOT verified)
 - Charter724 mapping filled from the official OpenAPI file (docs/charter724-openapi.json).
 - Two-step JWT login, token lifetime from expires_Utc, one re-login on 401.

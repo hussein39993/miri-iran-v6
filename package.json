@@ -1,6 +1,6 @@
 {
   "name": "miri-iran-v6",
-  "version": "6.0.0-wallet2",
+  "version": "6.0.0-wallet3a",
   "private": true,
   "description": "Miri Iran V6 - static front end (demo data) + Node backend with a Charter724 flight-search adapter (search only; no bookings, payments, tickets or refunds)",
   "scripts": {
@@ -8,6 +8,14 @@
     "test": "node tests/test.js && node tests/test_v5.js && node tests/test_server.js && node tests/test_charter724.js && node tests/test_wallet.js",
     "check:live": "node tools/check-live.js",
     "swagger:summary": "node tools/summarize-swagger.js docs/charter724-openapi.json",
-    "make:admin": "node tools/make-admin-hash.js"
+    "make:admin": "node tools/make-admin-hash.js",
+    "test:accounts": "node tests/test_accounts.js",
+    "test:live": "node tests/live/test_accounts_live.js",
+    "db:migrate": "node tools/migrate.js",
+    "db:status": "node tools/migrate.js --status",
+    "db:drop-sandbox": "node tools/db-drop-sandbox.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
   }
 }

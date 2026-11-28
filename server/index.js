@@ -10,4 +10,5 @@ http.createServer(app.handler).listen(cfg.port, cfg.host, () => {
   if (app.state.corsIgnored.length) logger.warn('Ignored invalid CORS_ORIGINS entries (must look like https://example.com, no path, no *)', { ignored: app.state.corsIgnored });
   if (cfg.mode === 'live' && !app.state.liveReady) logger.warn('Live mode requested but NOT usable', { reasons: app.state.problems });
   if (cfg.mode !== 'live') logger.info('DEMO mode: all results are examples, nothing is booked, paid or refunded.');
+  app.accounts.init().catch(e => logger.error('Accounts init crashed', { message: e && e.message })); // never blocks the other services
 });

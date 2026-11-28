@@ -12,17 +12,16 @@
   const RS = { status: 'loading', R: null, fetchedAt: 0 }; // shared rate state. There is NO fallback rate: no valid rate = conversion disabled.
   const getR = () => (W.rateUsable(RS.R) ? RS.R : null);
 
+  // Non-blocking: the wallet renders first; rates arrive later. Long timeout + retry because Render Free may need up to a minute to wake up.
+  // Identical requests share one network call (Api.get de-duplicates). A rate is NEVER reused after its own expiry (getR checks the deadline).
   async function loadRates(done, force) {
     if (!force && RS.status === 'ok' && W.rateUsable(RS.R) && Date.now() - RS.fetchedAt < 30000) { done(); return; }
-    try {
-      const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 8000);
-      const res = await fetch(API + '/api/wallet/rates', { cache: 'no-store', credentials: 'omit', signal: ctl.signal }); clearTimeout(tm);
-      const j = await res.json();
-      if (res.ok && j.status === 'ok') { RS.R = W.fromApi(j, Date.now()); RS.status = RS.R ? 'ok' : 'invalid'; }
-      else if (res.ok && (j.status === 'expired' || j.status === 'unavailable')) { RS.R = null; RS.status = j.status; }
-      else { RS.status = W.rateUsable(RS.R) ? 'ok' : 'error'; if (!W.rateUsable(RS.R)) RS.R = null; }
-    } catch (e) { RS.status = W.rateUsable(RS.R) ? 'ok' : 'error'; if (!W.rateUsable(RS.R)) RS.R = null; } // a transient network error never extends an old rate past its expiry
-    RS.fetchedAt = Date.now(); done();
+    const r = await Api.get('/api/wallet/rates', { timeout: 30000, retries: 1, onSlow: on => { RS.waking = on; done(); } });
+    const j = r.data;
+    if (r.ok && j && j.status === 'ok') { RS.R = W.fromApi(j, Date.now()); RS.status = RS.R ? 'ok' : 'invalid'; }
+    else if (r.ok && j && (j.status === 'expired' || j.status === 'unavailable')) { RS.R = null; RS.status = j.status; }
+    else { RS.status = W.rateUsable(RS.R) ? 'ok' : 'error'; if (!W.rateUsable(RS.R)) RS.R = null; } // a transient failure never extends an old rate past its expiry
+    RS.waking = false; RS.fetchedAt = Date.now(); done();
   }
 
   const loc = () => LANGS[S.lang].loc;
@@ -204,7 +203,7 @@
       box.replaceChildren(el('h2', t('w_ratesTitle')), el('p', t('w_ratesNote'), 'note')); const R = getR();
       if (R) {
         box.append(el('h3', t('w_pairs'), 'wh3'));
-        W.derivedTable(R).forEach(x => { const row = el('div', undefined, 'wrate'); row.append(el('strong', x.from + ' → ' + x.to), pairText(x.from, x.to, R)); box.append(row); });
+        W.derivedTable(R).forEach(x => { const row = el('div', undefined, 'wrate'); row.append(el('strong', undefined, undefined).appendChild(ltr(x.from + ' → ' + x.to)).parentNode, pairText(x.from, x.to, R)); box.append(row); });
         const dl = el('dl', undefined, 'wdl');
         dlAdd(dl, t('w_updated'), fmtDate(R.updatedAt)); dlAdd(dl, t('w_validUntil'), fmtDate(R.validUntil));
         dlAdd(dl, t('w_ffee'), ltr(nf(R.fees.fundingPct) + '%')); dlAdd(dl, t('w_xfee'), ltr(nf(R.fees.exchangePct) + '%'));
@@ -249,7 +248,7 @@
     const paintBar = () => {
       bar.replaceChildren();
       if (RS.status === 'ok' && getR()) return;
-      if (RS.status === 'loading') { bar.append(el('p', t('w_rt_loading'), 'muted', { role: 'status' })); return; }
+      if (RS.status === 'loading') { bar.append(el('p', t(RS.waking ? 'w_rt_waking' : 'w_rt_loading'), 'muted', { role: 'status' })); return; }
       const key = RS.status === 'ok' ? 'expired' : RS.status; // a rate that ran out of time is "expired"
       const p = el('p', t('w_rt_' + key) + ' ', 'note warn', { role: 'alert' }), b = el('button', t('w_retry'), 'ghost2'); b.type = 'button';
       b.onclick = () => { RS.status = 'loading'; paintBar(); loadRates(onRates, true); };

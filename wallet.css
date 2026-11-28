@@ -48,3 +48,12 @@
 .wsup{margin-top:18px;display:flex;flex-direction:column;gap:10px}
 .wtk{display:flex;align-items:center;justify-content:center;text-decoration:none}
 .panel{margin-bottom:14px}
+
+/* Stage 3A: customer account pages */
+.acct .panel{margin-bottom:14px}
+.acct .field small.err{display:block;min-height:0}
+.acct-st-active{background:#d9f4e8;color:#0b5d46}.acct-st-pending_verification{background:#fff3d6;color:#7a5410}
+.acct-st-restricted{background:#fff3d6;color:#7a5410}.acct-st-suspended,.acct-st-closed{background:#fde3e0;color:#9b2417}
+[data-theme=dark] .acct-st-active{background:#0f4a3a;color:#bff0dc}[data-theme=dark] .acct-st-pending_verification,[data-theme=dark] .acct-st-restricted{background:#4a3a12;color:#f2dca4}
+[data-theme=dark] .acct-st-suspended,[data-theme=dark] .acct-st-closed{background:#5a2420;color:#ffd2cc}
+.acct input,.acct select{width:100%;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--bg);color:var(--ink)}

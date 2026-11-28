@@ -46,7 +46,9 @@
   }
 
   function profile(root) {
-    root.append(el('h1', t('profileTitle')), el('p', t('profileNote'), 'note'), el('h2', t('supportTitle')), el('p', t('supportNote'), 'muted'));
+    root.append(el('h1', t('profileTitle')), el('p', t('profileNote'), 'note'));
+    if (window.Account) Account.mount(root); // Stage 3A: sign in / register / profile (sandbox)
+    root.append(el('h2', t('supportTitle')), el('p', t('supportNote'), 'muted'));
     const f = el('form'), a = el('input'), m = el('input'), out = el('p', '', 'positive', { 'aria-live': 'polite' }); a.id = 'tk1'; m.id = 'tk2';
     const w = (id, lab, c) => { const d = el('div', undefined, 'field'), l = el('label', lab); l.htmlFor = id; d.append(l, c); return d; };
     const send = el('button', t('ticketSend'), 'cta'); send.type = 'submit'; f.append(w('tk1', t('ticketSubject'), a), w('tk2', t('ticketMsg'), m), send, out);
@@ -64,5 +66,8 @@
     else root.append(el('p', t('needPartner'), 'note'));
     return noop;
   }
-  window.Views = { home, offers, notifications, bookings, wallet, profile, service };
+  // E-mail links: #/verify/<token> and #/reset/<token> (the token stays in the hash, so it is never sent to any server by the browser).
+  function verify(root) { root.append(el('h1', t('profileTitle'))); if (window.Account) Account.verify(root); else location.hash = '#/profile'; }
+  function reset(root) { root.append(el('h1', t('profileTitle'))); if (window.Account) Account.reset(root); else location.hash = '#/profile'; }
+  window.Views = { home, offers, notifications, bookings, wallet, profile, verify, reset, service };
 })();

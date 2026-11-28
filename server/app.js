@@ -7,9 +7,10 @@ const { createLogger } = require('./redact');
 const mock = require('./providers/mock');
 const { Charter724Adapter } = require('./charter724/adapter');
 const { createCors } = require('./cors');
+const { createAccountsHandler } = require('./customers/handler'); // customer accounts (PostgreSQL, sandbox only); inactive until DATABASE_URL is configured
 const { createWalletHandler } = require('./wallet/handler'); // wallet exchange rates (public read + protected admin); no balances, payments or conversions
 const { createRechargeHandler } = require('./recharge/handler'); // read-only recharge catalog (no recharge, payment or wallet)
-const BUILD = '2026-11-27-wallet-2'; // shown by /api/health so you can confirm which version Render is running
+const BUILD = '2026-11-28-wallet-3a'; // shown by /api/health so you can confirm which version Render is running
 const ROOT = path.resolve(__dirname, '..');
 const STATIC_OK = /^\/(index\.html|styles\.css|wallet\.css|js\/[A-Za-z0-9_.-]+\.js)$/; // allowlist: nothing else is ever served
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
@@ -22,6 +23,7 @@ function createApp(cfg, deps = {}) {
   const cors = createCors({ origins: deps.corsOrigins });
   const recharge = deps.rechargeHandler || createRechargeHandler();
   const wallet = deps.walletHandler || createWalletHandler({ logger });
+  const accounts = deps.accountsHandler || createAccountsHandler({ logger, adminAuth: wallet.auth });
   const isAdminPath = u => /^\/(admin(\/|$|\?)|api\/admin\/)/.test(u); // admin is same-origin only: it never gets CORS headers
   // Behind Render's proxy every visitor shares the proxy's IP, so the rate limit would be shared by ALL visitors. On Render (or TRUST_PROXY=true) use the visitor IP from X-Forwarded-For.
   const trustProxy = deps.trustProxy !== undefined ? deps.trustProxy : (process.env.TRUST_PROXY === 'true' || process.env.RENDER === 'true');
@@ -67,6 +69,10 @@ function createApp(cfg, deps = {}) {
         for (const k in SEC) res.setHeader(k, SEC[k]);
         if (await recharge(req, res)) return;
       }
+      if (accounts.owns(p)) { // /api/auth/*, /api/me*, /api/health/db, /api/admin/customers*, /api/admin/sandbox/outbox
+        for (const k in SEC) res.setHeader(k, SEC[k]);
+        if (await accounts.handle(req, res, { json, readJson, ip: clientIp(req) })) return;
+      }
       if (p.startsWith('/api/wallet/') || p.startsWith('/api/admin/')) { // public rates + protected admin API (see server/wallet/handler.js)
         for (const k in SEC) res.setHeader(k, SEC[k]);
         if (await wallet.handle(req, res, { json, readJson, ip: clientIp(req) })) return;
@@ -84,6 +90,6 @@ function createApp(cfg, deps = {}) {
     if (!(e instanceof AppError)) logger.error('unhandled error', { name: e && e.name, message: e && e.message });
     if (!res.headersSent) json(res, err.status, toBody(err));
   }); };
-  return { handler, state: { liveReady, problems, corsOrigins: cors.origins, corsIgnored: cors.ignored } };
+  return { handler, accounts, state: { liveReady, problems, corsOrigins: cors.origins, corsIgnored: cors.ignored } };
 }
 module.exports = { createApp };

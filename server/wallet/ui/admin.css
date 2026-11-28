@@ -17,3 +17,5 @@ button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line
 .ltr{direction:ltr;unicode-bidi:isolate;display:inline-block}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start;vertical-align:top}
 .hist{overflow-x:auto}
+select{height:46px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--bg);color:var(--ink);font-size:16px;width:100%}
+a{color:var(--ink);overflow-wrap:anywhere}
